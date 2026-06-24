@@ -18,6 +18,12 @@ Tone Sketch is a web-based music creation platform that enables users to quickly
 - **Grid_Snap**: Quantization feature that aligns notes to discrete time intervals
 - **MIDI_File**: A standard music file format (.mid) for importing and exporting note data
 - **Tempo**: The speed of playback measured in beats per minute (BPM)
+- **Custom_Hook**: A React hook function (use* naming convention) that encapsulates reusable stateful logic and side effects
+- **Shared_Component**: A reusable React component that provides UI functionality across multiple pages or features
+- **Icon_Component**: A reusable SVG-based React component that renders a specific icon, accepting className props for styling
+- **Keyboard_Piano**: A feature that maps computer keyboard keys to piano notes, allowing users to play musical pitches using QWERTY keyboard input
+- **SynthControls**: The sidebar UI component that displays and manages all synthesizer parameters including oscillator type, ADSR envelope, filter, and audio effects
+- **ResizeObserver**: A browser API that monitors changes to an element's dimensions, enabling responsive canvas rendering
 
 ## Requirements
 
@@ -117,6 +123,10 @@ Tone Sketch is a web-based music creation platform that enables users to quickly
 3. WHEN playback stops, THE Piano_Roll_Editor SHALL retain the Playhead at the stop position
 4. THE Piano_Roll_Editor SHALL synchronize Playhead position with audio timing within 50 milliseconds accuracy
 5. WHEN the user clicks on the timeline area, THE Piano_Roll_Editor SHALL reposition the Playhead to the clicked time position
+6. THE Piano_Roll_Editor SHALL render the Playhead as a high-contrast color line (bright red #FF0000 or equivalent high-visibility color) that is clearly distinguishable from the grid and note elements
+7. THE Piano_Roll_Editor SHALL render the Playhead with a minimum width of 2 pixels
+8. THE Piano_Roll_Editor SHALL render the Playhead spanning the full height of the visible piano roll grid area
+9. THE Piano_Roll_Editor SHALL render the Playhead with a z-index higher than all Note elements, ensuring the Playhead is always visible on top of notes
 
 ### Requirement 9: Synthesizer Oscillator Configuration
 
@@ -398,3 +408,235 @@ Tone Sketch is a web-based music creation platform that enables users to quickly
 3. THE Application SHALL validate Note duration values are numbers greater than 0 with a minimum of 0.001 beats and a maximum of 1000 beats
 4. THE Application SHALL validate Note velocity values are numbers between 0 and 1 inclusive
 5. IF Note validation fails, THEN THE Application SHALL reject the save request with an error response indicating which field failed validation and why
+
+### Requirement 32: Environment Configuration Documentation
+
+**User Story:** As a developer, I want documented environment variables, so that I can configure the application for local development and deployment.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL include an `.env.example` file in the project root directory
+2. THE `.env.example` file SHALL document the DATABASE_URL environment variable with a placeholder value indicating Neon Postgres connection string format
+3. THE `.env.example` file SHALL include comments describing the purpose and format of each environment variable
+4. THE Application SHALL use the DATABASE_URL environment variable to establish database connections to Neon Postgres
+
+### Requirement 33: Keyboard Shortcut - Play/Stop Control
+
+**User Story:** As a music creator, I want to control playback using keyboard shortcuts, so that I can work more efficiently without reaching for the mouse.
+
+#### Acceptance Criteria
+
+1. WHEN the user presses the Space bar while the Piano_Roll_Editor has focus, THE Application SHALL toggle playback state between playing and stopped
+2. WHEN playback is stopped AND the user presses the Space bar, THE Synthesizer SHALL begin playing notes from the current Playhead position
+3. WHEN playback is active AND the user presses the Space bar, THE Synthesizer SHALL stop all currently sounding notes and stop playback
+4. THE Application SHALL prevent the default browser behavior for the Space bar key when the Piano_Roll_Editor has focus
+5. WHILE the user is typing in a text input field, THE Application SHALL NOT trigger playback control on Space bar press
+
+### Requirement 34: Piano Roll Scroll Controls
+
+**User Story:** As a music creator, I want visible scrollbars on the piano roll, so that I can navigate the grid without relying solely on mouse wheel scrolling.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL display a horizontal scrollbar at the bottom of the editor for navigating time (beats)
+2. THE Piano_Roll_Editor SHALL display a vertical scrollbar on the right side of the editor for navigating pitch (MIDI notes)
+3. WHEN the user drags the horizontal scrollbar, THE Piano_Roll_Editor SHALL update the visible time region proportionally to the scrollbar position
+4. WHEN the user drags the vertical scrollbar, THE Piano_Roll_Editor SHALL update the visible pitch region proportionally to the scrollbar position
+5. THE Piano_Roll_Editor SHALL synchronize scrollbar positions with the current visible region when scrolling via mouse wheel or other navigation methods
+6. THE Piano_Roll_Editor SHALL display scrollbar thumb sizes proportional to the visible region relative to the total scrollable area
+
+### Requirement 35: Full Note Name Display
+
+**User Story:** As a music creator, I want to see full note names with octaves on the piano roll, so that I can easily identify specific pitches while composing.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL display note names in the format of note letter, optional sharp symbol, and octave number (C4, C#4, D4, D#4, E4, F4, F#4, G4, G#4, A4, A#4, B4, C5, etc.) for each row in the pitch axis
+2. THE Piano_Roll_Editor SHALL display note names for all visible pitch rows, not only at octave boundaries
+3. THE Piano_Roll_Editor SHALL use standard scientific pitch notation where middle C is designated as C4 (MIDI note 60)
+4. THE Piano_Roll_Editor SHALL display the note name labels in a fixed-width column on the left side of the grid that remains visible during horizontal scrolling
+5. THE Piano_Roll_Editor SHALL visually distinguish natural notes from sharp notes in the note name labels
+
+### Requirement 36: Audio Effects
+
+**User Story:** As a music creator, I want to apply audio effects to the synthesizer, so that I can create richer and more expressive sounds.
+
+#### Acceptance Criteria
+
+1. THE Synthesizer SHALL provide a Reverb effect with adjustable room size parameter (range 0 to 1, default 0.5) and wet/dry mix parameter (range 0 to 1, default 0.3)
+2. THE Synthesizer SHALL provide a Delay effect with adjustable time parameter (range 0 to 1 seconds, default 0.25), feedback parameter (range 0 to 0.9, default 0.3), and wet/dry mix parameter (range 0 to 1, default 0.3)
+3. THE Synthesizer SHALL provide a Chorus effect with adjustable rate parameter (range 0.1 to 10 Hz, default 1.5), depth parameter (range 0 to 1, default 0.5), and wet/dry mix parameter (range 0 to 1, default 0.3)
+4. THE Synthesizer SHALL provide a Flanger effect with adjustable rate parameter (range 0.1 to 10 Hz, default 0.5), depth parameter (range 0 to 1, default 0.5), feedback parameter (range 0 to 0.9, default 0.5), and wet/dry mix parameter (range 0 to 1, default 0.3)
+5. THE Synthesizer SHALL allow each effect to be independently enabled or disabled, with all effects disabled by default
+6. WHEN the user adjusts any effect parameter, THE Synthesizer SHALL apply the change to the audio output within 50 milliseconds
+7. THE Synthesizer SHALL persist effect settings including enabled state and all parameters as part of the Melody configuration
+
+### Requirement 37: Synthesizer Sound Presets
+
+**User Story:** As a music creator, I want to select from predefined synthesizer presets, so that I can quickly achieve common sound types without manual parameter adjustment.
+
+#### Acceptance Criteria
+
+1. THE Synthesizer SHALL provide a preset selection control with categorized preset options
+2. THE Synthesizer SHALL include Piano presets that configure oscillator, envelope, and effect parameters to emulate piano-like timbres
+3. THE Synthesizer SHALL include Lead presets that configure parameters for prominent melodic sounds suitable for lead lines
+4. THE Synthesizer SHALL include Pluck presets that configure parameters for short, percussive sounds with fast attack and decay
+5. THE Synthesizer SHALL include Guitar presets that configure parameters to emulate guitar-like string timbres
+6. THE Synthesizer SHALL include Bass presets that configure parameters for low-frequency sounds suitable for bass lines
+7. WHEN the user selects a preset, THE Synthesizer SHALL apply all preset parameter values including oscillator type, ADSR envelope, filter settings, and effect configurations
+8. THE Synthesizer SHALL persist the selected preset name as part of the Melody configuration
+9. WHEN a Melody is loaded with a saved preset, THE Synthesizer SHALL restore the preset selection and all associated parameter values
+
+### Requirement 38: Code Organization with Hooks and Shared Components
+
+**User Story:** As a developer, I want a modular architecture with lean page files, so that business logic is separated into custom hooks and UI elements are reusable across the application.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL organize page.tsx files to contain only routing, layout composition, and component orchestration, delegating business logic to Custom_Hooks
+2. THE Application SHALL extract stateful business logic including data fetching, form handling, and audio control into Custom_Hooks located in a dedicated hooks directory
+3. THE Application SHALL extract reusable UI elements into Shared_Components located in the components directory with a barrel export file (index.ts)
+4. WHEN a Custom_Hook manages state that multiple components consume, THE Custom_Hook SHALL return typed state values and handler functions
+5. WHEN a Shared_Component is created, THE Shared_Component SHALL accept props for all configurable behavior and emit events via callback props for parent communication
+6. THE Application SHALL ensure each page.tsx file does not exceed 150 lines of code excluding imports and type definitions
+7. IF a page.tsx file requires more than three distinct state management concerns, THEN THE Application SHALL split those concerns into separate Custom_Hooks
+
+### Requirement 39: Icon Component Centralization
+
+**User Story:** As a developer, I want all SVG icons centralized in a dedicated location, so that icons are reusable across components and easier to maintain.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL store all Icon_Components in a dedicated icons file or directory within the components folder
+2. THE Application SHALL NOT define SVG icons inline within page files or component files
+3. WHEN an Icon_Component is needed, THE Application SHALL import it from the centralized icons location
+4. THE Application SHALL export each Icon_Component as a named export accepting a className prop for styling customization
+5. THE Application SHALL migrate existing inline SVG icons from TransportControls, MelodyCard, MelodyFeed, PageErrorFallback, GridSnapControls, and page files to the centralized icons location
+6. WHEN a new icon is required, THE Application SHALL add the Icon_Component to the centralized icons location rather than defining it inline
+
+### Requirement 40: Keyboard Piano Playing
+
+**User Story:** As a music creator, I want to play musical notes using my computer keyboard, so that I can quickly audition pitches and experiment with melodies without using the mouse.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL map keyboard keys to piano notes using a standard QWERTY piano layout where the bottom row (Z, X, C, V, B, N, M) plays white keys starting from C3, the middle row (A, S, D, F, G, H, J, K, L) plays white keys starting from C4, and the top row (Q, W, E, R, T, Y, U, I, O, P) plays white keys starting from C5
+2. THE Piano_Roll_Editor SHALL map sharp/black keys to the row above each white key row, such that keys 2, 3, 5, 6, 7 play C#4, D#4, F#4, G#4, A#4 respectively when the middle row maps to C4
+3. WHEN the user presses a mapped keyboard key, THE Synthesizer SHALL immediately trigger the corresponding Note sound with velocity 0.8
+4. WHEN the user releases a mapped keyboard key, THE Synthesizer SHALL stop the corresponding Note sound, allowing the ADSR_Envelope release phase to complete
+5. THE Piano_Roll_Editor SHALL visually highlight the corresponding piano row in the grid while a keyboard key is held down to indicate which note is being played
+6. WHILE the user is typing in a text input field, textarea, or contenteditable element, THE Piano_Roll_Editor SHALL NOT trigger keyboard piano playing
+7. THE Piano_Roll_Editor SHALL support playing multiple notes simultaneously when multiple mapped keys are pressed (polyphonic keyboard input)
+8. WHEN the Synthesizer is not initialized or audio context is suspended, THE Piano_Roll_Editor SHALL NOT attempt to play keyboard-triggered notes and SHALL NOT display an error
+
+
+### Requirement 41: Piano Roll Fullscreen Mode
+
+**User Story:** As a music creator, I want to expand the piano roll to fullscreen, so that I can have maximum workspace for composing without distraction.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL provide a fullscreen toggle button in the transport controls bar
+2. WHEN the user clicks the fullscreen toggle button, THE Piano_Roll_Editor SHALL expand to cover the entire viewport, hiding the sidebar with synthesizer controls
+3. WHILE in fullscreen mode, THE Piano_Roll_Editor SHALL display the transport controls bar at the top with a button to exit fullscreen
+4. WHEN the user presses the Escape key while in fullscreen mode, THE Piano_Roll_Editor SHALL exit fullscreen mode and restore the normal layout
+5. WHEN the user clicks the fullscreen exit button, THE Piano_Roll_Editor SHALL exit fullscreen mode and restore the normal layout
+6. THE fullscreen toggle button SHALL display an expand icon when not in fullscreen and a collapse icon when in fullscreen mode
+7. THE transition between fullscreen and normal mode SHALL be animated for a smooth user experience
+
+### Requirement 42: Piano Roll Dynamic Resize Handling
+
+**User Story:** As a music creator, I want the piano roll to automatically adjust when its container size changes, so that the editor renders correctly after layout changes like fullscreen toggle.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL use a ResizeObserver to detect container size changes
+2. WHEN the container size changes (e.g., due to fullscreen toggle, window resize, or layout changes), THE Piano_Roll_Editor SHALL re-render the canvas to fit the new container dimensions
+3. THE Piano_Roll_Editor SHALL debounce resize events using requestAnimationFrame to prevent excessive redraws
+4. WHEN the container resizes, THE Piano_Roll_Editor SHALL maintain the current visible region proportions where possible
+
+### Requirement 43: Compact Synthesizer Controls Layout
+
+**User Story:** As a music creator, I want the synthesizer controls to have a compact, collapsible layout, so that all controls fit without excessive scrolling and I can focus on the most relevant parameters.
+
+#### Acceptance Criteria
+
+1. THE SynthControls component SHALL organize parameters into collapsible sections: Envelope (ADSR), Filter, and Effects
+2. WHEN a section header is clicked, THE SynthControls SHALL toggle that section between expanded and collapsed states
+3. THE SynthControls SHALL display sliders in a compact inline format with label, slider, and value on a single row
+4. THE Effects section SHALL display each effect (Reverb, Delay, Chorus, Flanger) as a collapsible row with an enable toggle
+5. WHEN an effect toggle is enabled and the effect row is expanded, THE SynthControls SHALL display that effect's parameter sliders
+6. WHEN an effect toggle is disabled, THE SynthControls SHALL hide that effect's parameter sliders regardless of expansion state
+7. THE SynthControls SHALL fit all controls within the sidebar without requiring scrolling when all sections are collapsed
+
+
+### Requirement 44: Tempo Control
+
+**User Story:** As a music creator, I want to adjust the playback tempo using a slider, so that I can control how fast or slow my melody plays without modifying individual note timings.
+
+#### Acceptance Criteria
+
+1. THE SynthControls component SHALL display a Tempo slider control positioned below the Volume slider
+2. THE Tempo slider SHALL have a range from 40 BPM to 240 BPM with a default value of 120 BPM
+3. THE Tempo slider SHALL display the current tempo value with "BPM" unit suffix (e.g., "120 BPM")
+4. WHEN the user adjusts the Tempo slider, THE Synthesizer SHALL apply the new tempo to the audio playback engine immediately
+5. WHEN the user adjusts the Tempo slider during active playback, THE Synthesizer SHALL update the playback speed in real-time without stopping or restarting playback
+6. THE Application SHALL persist the tempo value as part of the Melody configuration when saving
+7. WHEN a Melody is loaded, THE Application SHALL restore the saved tempo value and apply it to the Synthesizer
+8. WHILE the user is viewing a Melody they do not own, THE Tempo slider SHALL be displayed in a disabled/read-only state showing the saved tempo value
+9. WHILE the user is viewing a Melody they own, THE Tempo slider SHALL be enabled for editing
+
+### Requirement 45: Dynamic Canvas Length
+
+**User Story:** As a music creator, I want the piano roll canvas to automatically extend based on the notes I've placed, so that I can see my entire composition without manually adjusting canvas settings.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL calculate the effective canvas length dynamically based on the position and duration of placed notes
+2. WHEN notes are added or imported, THE Piano_Roll_Editor SHALL extend the canvas length to accommodate all notes plus a buffer of at least 16 beats beyond the last note ending
+3. THE Piano_Roll_Editor SHALL round the calculated canvas length to the nearest multiple of 16 beats for visual consistency
+4. THE Piano_Roll_Editor SHALL maintain a minimum canvas length of 64 beats regardless of note content
+5. WHEN a Melody with notes is loaded, THE Piano_Roll_Editor SHALL automatically calculate and apply the appropriate canvas length to display all notes
+6. THE Piano_Roll_Editor SHALL accept an optional totalBeats prop to override the automatic calculation when explicit canvas length is desired
+
+### Requirement 46: Auto-Scroll During Playback
+
+**User Story:** As a music creator, I want the piano roll to automatically scroll during playback, so that I can follow along with my melody as it plays without manually scrolling.
+
+#### Acceptance Criteria
+
+1. THE Piano_Roll_Editor SHALL provide auto-scroll functionality that is enabled by default during playback
+2. WHILE playback is active AND auto-scroll is enabled, THE Piano_Roll_Editor SHALL monitor the Playhead position relative to the visible canvas region
+3. WHEN the Playhead reaches 80% of the visible horizontal region during playback, THE Piano_Roll_Editor SHALL scroll the canvas so that the Playhead is positioned at 20% from the left edge of the visible region
+4. THE auto-scroll behavior SHALL only trigger during active playback (isPlaying true AND isPaused false)
+5. THE auto-scroll behavior SHALL NOT interfere with manual user scrolling when playback is not active
+6. THE Piano_Roll_Editor SHALL accept isPlaying and autoScrollDuringPlayback props to control the auto-scroll behavior
+
+### Requirement 47: Clear All Notes
+
+**User Story:** As a music creator, I want a clear all notes button, so that I can quickly start over with a fresh canvas without manually deleting each note.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL display a "Clear All" button in the transport controls bar on the create page
+2. WHILE the user is the Owner of a Melody, THE Application SHALL display a "Clear All" button in the transport controls bar on the melody edit page
+3. WHILE the user is not the Owner of a Melody, THE Application SHALL NOT display a "Clear All" button on the melody edit page
+4. WHEN the notes array is empty, THE "Clear All" button SHALL be disabled
+5. WHEN the user clicks the "Clear All" button, THE Piano_Roll_Editor SHALL remove all notes from the Melody immediately
+6. WHEN the "Clear All" button is clicked on the melody edit page, THE Application SHALL clear any save success indicator to indicate unsaved changes
+7. THE "Clear All" button SHALL be styled distinctively (e.g., with a warning color) to indicate its destructive nature
+
+### Requirement 48: MIDI Controls Shared Component
+
+**User Story:** As a developer, I want MIDI import and export functionality encapsulated in a reusable component, so that it can be consistently used across the create page and melody edit page.
+
+#### Acceptance Criteria
+
+1. THE Application SHALL provide a MidiControls Shared_Component that encapsulates MIDI file import and export functionality
+2. THE MidiControls component SHALL accept props for notes array, melody title, tempo, onImport callback, and optional allowImport flag
+3. THE MidiControls component SHALL always display an export button that triggers MIDI file download with the current notes, title, and tempo
+4. WHEN allowImport prop is true, THE MidiControls component SHALL display an import button that triggers file selection for MIDI file upload
+5. WHEN allowImport prop is false or omitted, THE MidiControls component SHALL NOT display the import button
+6. THE MidiControls component SHALL use the useMidiImportExport Custom_Hook internally for MIDI parsing and generation logic
+7. THE Application SHALL use the MidiControls component on the create page with import enabled
+8. THE Application SHALL use the MidiControls component on the melody edit page with import enabled only for the melody Owner
