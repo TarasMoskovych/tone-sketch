@@ -6,13 +6,13 @@
  * ADSR envelope, filter, and effects settings.
  *
  * Categories (5 presets each):
- * - Piano: longer attack, smooth sustain, moderate release
- * - Lead: quick attack, high sustain, medium release, brighter filter
- * - Pluck: quick attack, short decay, low sustain, quick release
- * - Guitar: moderate attack, medium sustain, medium release
- * - Bass: quick attack, full sustain, short release, lower filter frequency
- * - Strings: slow attack, high sustain, slow release, warm tone
- * - Pads: very slow attack, full sustain, long release, atmospheric
+ * - Piano: percussive attack, warm harmonics, moderate release
+ * - Lead: quick attack, high sustain, expressive effects
+ * - Pluck: instant attack, short decay, minimal sustain
+ * - Guitar: moderate attack, natural decay, warm filtering
+ * - Bass: punchy low-end, controlled sustain, tight release
+ * - Strings: slow attack, full sustain, long release, lush effects
+ * - Pads: very slow attack, atmospheric, spacious effects
  */
 
 import type {
@@ -32,22 +32,22 @@ const defaultEffectsOff: EffectsConfig = {
   flanger: { enabled: false, rate: 0.5, depth: 0.5, feedback: 0.5, wetDry: 0.3 },
 };
 
-// ============================================================================
+// =============================================================================
 // Piano Presets (5)
-// Characteristics: longer attack, smooth sustain, moderate release
-// ============================================================================
+// Percussive attack with harmonic richness, natural decay characteristics
+// =============================================================================
 
 const acousticPiano: SynthPreset = {
   name: 'Acoustic Piano',
   category: 'Piano',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.02, decay: 0.3, sustain: 0.4, release: 0.8 },
-    filter: { enabled: true, type: 'lowpass', frequency: 5000 },
+    volume: 0.75,
+    envelope: { attack: 0.005, decay: 1.2, sustain: 0.05, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3800 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.35 },
     },
   },
 };
@@ -58,12 +58,12 @@ const electricPiano: SynthPreset = {
   config: {
     oscillatorType: 'sine',
     volume: 0.75,
-    envelope: { attack: 0.01, decay: 0.4, sustain: 0.35, release: 0.6 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    envelope: { attack: 0.003, decay: 0.4, sustain: 0.5, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3500 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 1.2, depth: 0.4, wetDry: 0.25 },
-      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.2 },
+      chorus: { enabled: true, rate: 1.0, depth: 0.45, wetDry: 0.35 },
+      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.25 },
     },
   },
 };
@@ -74,11 +74,11 @@ const softPiano: SynthPreset = {
   config: {
     oscillatorType: 'sine',
     volume: 0.7,
-    envelope: { attack: 0.05, decay: 0.5, sustain: 0.3, release: 1.0 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2500 },
+    envelope: { attack: 0.04, decay: 1.0, sustain: 0.05, release: 0.8 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.7, wetDry: 0.35 },
+      reverb: { enabled: true, roomSize: 0.75, wetDry: 0.4 },
     },
   },
 };
@@ -88,12 +88,12 @@ const brightPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.7 },
-    filter: { enabled: true, type: 'lowpass', frequency: 8000 },
+    volume: 0.75,
+    envelope: { attack: 0.002, decay: 0.5, sustain: 0.05, release: 0.9 },
+    filter: { enabled: true, type: 'lowpass', frequency: 9000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.2 },
+      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.25 },
     },
   },
 };
@@ -102,34 +102,35 @@ const warmPiano: SynthPreset = {
   name: 'Warm Piano',
   category: 'Piano',
   config: {
-    oscillatorType: 'sine',
-    volume: 0.75,
-    envelope: { attack: 0.03, decay: 0.4, sustain: 0.45, release: 0.9 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3000 },
+    oscillatorType: 'triangle',
+    volume: 0.72,
+    envelope: { attack: 0.01, decay: 0.9, sustain: 0.05, release: 0.7 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2800 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.65, wetDry: 0.3 },
-      chorus: { enabled: true, rate: 0.8, depth: 0.2, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.65, wetDry: 0.35 },
+      chorus: { enabled: true, rate: 0.6, depth: 0.2, wetDry: 0.15 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Lead Presets (5)
-// Characteristics: quick attack, high sustain, medium release, brighter filter
-// ============================================================================
+// Quick attack, high sustain for melodic lines, bright and present
+// =============================================================================
 
 const classicLead: SynthPreset = {
   name: 'Classic Lead',
   category: 'Lead',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.75,
-    envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.4 },
-    filter: { enabled: true, type: 'lowpass', frequency: 8000 },
+    volume: 0.7,
+    envelope: { attack: 0.005, decay: 0.15, sustain: 0.8, release: 0.3 },
+    filter: { enabled: true, type: 'lowpass', frequency: 7000 },
     effects: {
       ...defaultEffectsOff,
-      delay: { enabled: true, time: 0.3, feedback: 0.25, wetDry: 0.2 },
+      delay: { enabled: true, time: 0.33, feedback: 0.35, wetDry: 0.3 },
+      reverb: { enabled: true, roomSize: 0.3, wetDry: 0.2 },
     },
   },
 };
@@ -139,12 +140,13 @@ const sawLead: SynthPreset = {
   category: 'Lead',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.7,
-    envelope: { attack: 0.005, decay: 0.15, sustain: 0.85, release: 0.35 },
+    volume: 0.68,
+    envelope: { attack: 0.003, decay: 0.1, sustain: 0.85, release: 0.25 },
     filter: { enabled: true, type: 'lowpass', frequency: 10000 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 2.0, depth: 0.3, wetDry: 0.2 },
+      chorus: { enabled: true, rate: 2.5, depth: 0.5, wetDry: 0.35 },
+      reverb: { enabled: true, roomSize: 0.25, wetDry: 0.15 },
     },
   },
 };
@@ -154,13 +156,13 @@ const squareLead: SynthPreset = {
   category: 'Lead',
   config: {
     oscillatorType: 'square',
-    volume: 0.65,
-    envelope: { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.3 },
-    filter: { enabled: true, type: 'lowpass', frequency: 6000 },
+    volume: 0.62,
+    envelope: { attack: 0.005, decay: 0.08, sustain: 0.9, release: 0.2 },
+    filter: { enabled: true, type: 'lowpass', frequency: 5000 },
     effects: {
       ...defaultEffectsOff,
-      delay: { enabled: true, time: 0.25, feedback: 0.3, wetDry: 0.25 },
-      reverb: { enabled: true, roomSize: 0.3, wetDry: 0.15 },
+      delay: { enabled: true, time: 0.25, feedback: 0.4, wetDry: 0.3 },
+      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.2 },
     },
   },
 };
@@ -170,13 +172,13 @@ const sineLead: SynthPreset = {
   category: 'Lead',
   config: {
     oscillatorType: 'sine',
-    volume: 0.8,
-    envelope: { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.4 },
-    filter: { enabled: true, type: 'lowpass', frequency: 12000 },
+    volume: 0.75,
+    envelope: { attack: 0.008, decay: 0.05, sustain: 0.95, release: 0.35 },
+    filter: { enabled: false, type: 'lowpass', frequency: 20000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.2 },
-      delay: { enabled: true, time: 0.2, feedback: 0.2, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.3 },
+      delay: { enabled: true, time: 0.2, feedback: 0.25, wetDry: 0.2 },
     },
   },
 };
@@ -186,33 +188,33 @@ const detunedLead: SynthPreset = {
   category: 'Lead',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.7,
-    envelope: { attack: 0.01, decay: 0.2, sustain: 0.85, release: 0.4 },
-    filter: { enabled: true, type: 'lowpass', frequency: 7000 },
+    volume: 0.65,
+    envelope: { attack: 0.005, decay: 0.12, sustain: 0.85, release: 0.3 },
+    filter: { enabled: true, type: 'lowpass', frequency: 6500 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 3.0, depth: 0.6, wetDry: 0.35 },
-      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.2 },
+      chorus: { enabled: true, rate: 0.8, depth: 0.8, wetDry: 0.45 },
+      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.25 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Pluck Presets (5)
-// Characteristics: quick attack, short decay, low sustain, quick release
-// ============================================================================
+// Instant attack, rapid decay, minimal sustain — percussive melodic sounds
+// =============================================================================
 
 const shortPluck: SynthPreset = {
   name: 'Short Pluck',
   category: 'Pluck',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.001, decay: 0.15, sustain: 0.1, release: 0.15 },
-    filter: { enabled: true, type: 'lowpass', frequency: 7000 },
+    volume: 0.75,
+    envelope: { attack: 0.001, decay: 0.2, sustain: 0.0, release: 0.1 },
+    filter: { enabled: true, type: 'lowpass', frequency: 6000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.2 },
+      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.3 },
     },
   },
 };
@@ -223,12 +225,12 @@ const softPluck: SynthPreset = {
   config: {
     oscillatorType: 'sine',
     volume: 0.75,
-    envelope: { attack: 0.005, decay: 0.25, sustain: 0.15, release: 0.25 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    envelope: { attack: 0.003, decay: 0.3, sustain: 0.05, release: 0.3 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.3 },
-      delay: { enabled: true, time: 0.2, feedback: 0.2, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.4 },
+      delay: { enabled: true, time: 0.25, feedback: 0.25, wetDry: 0.2 },
     },
   },
 };
@@ -238,8 +240,8 @@ const brightPluck: SynthPreset = {
   category: 'Pluck',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.7,
-    envelope: { attack: 0.001, decay: 0.1, sustain: 0.05, release: 0.1 },
+    volume: 0.65,
+    envelope: { attack: 0.001, decay: 0.08, sustain: 0.0, release: 0.06 },
     filter: { enabled: true, type: 'lowpass', frequency: 12000 },
     effects: {
       ...defaultEffectsOff,
@@ -253,13 +255,13 @@ const bellPluck: SynthPreset = {
   category: 'Pluck',
   config: {
     oscillatorType: 'sine',
-    volume: 0.75,
-    envelope: { attack: 0.001, decay: 0.4, sustain: 0.2, release: 0.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 6000 },
+    volume: 0.72,
+    envelope: { attack: 0.001, decay: 0.8, sustain: 0.0, release: 0.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 8000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.35 },
-      delay: { enabled: true, time: 0.3, feedback: 0.25, wetDry: 0.2 },
+      reverb: { enabled: true, roomSize: 0.7, wetDry: 0.45 },
+      delay: { enabled: true, time: 0.35, feedback: 0.3, wetDry: 0.25 },
     },
   },
 };
@@ -269,33 +271,33 @@ const mutedPluck: SynthPreset = {
   category: 'Pluck',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.7,
-    envelope: { attack: 0.001, decay: 0.08, sustain: 0.05, release: 0.08 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2500 },
+    volume: 0.72,
+    envelope: { attack: 0.001, decay: 0.06, sustain: 0.0, release: 0.05 },
+    filter: { enabled: true, type: 'lowpass', frequency: 1800 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.3, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.3, wetDry: 0.2 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Guitar Presets (5)
-// Characteristics: moderate attack, medium sustain, medium release
-// ============================================================================
+// Natural plucked string behavior with body resonance
+// =============================================================================
 
 const cleanGuitar: SynthPreset = {
   name: 'Clean Guitar',
   category: 'Guitar',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.75,
-    envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.4 },
-    filter: { enabled: true, type: 'lowpass', frequency: 5000 },
+    volume: 0.72,
+    envelope: { attack: 0.005, decay: 0.5, sustain: 0.3, release: 0.4 },
+    filter: { enabled: true, type: 'lowpass', frequency: 4500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.2 },
-      chorus: { enabled: true, rate: 1.0, depth: 0.3, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.25 },
+      chorus: { enabled: true, rate: 1.2, depth: 0.35, wetDry: 0.2 },
     },
   },
 };
@@ -304,13 +306,13 @@ const mutedGuitar: SynthPreset = {
   name: 'Muted Guitar',
   category: 'Guitar',
   config: {
-    oscillatorType: 'square',
-    volume: 0.7,
-    envelope: { attack: 0.005, decay: 0.1, sustain: 0.2, release: 0.15 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2000 },
+    oscillatorType: 'triangle',
+    volume: 0.68,
+    envelope: { attack: 0.002, decay: 0.08, sustain: 0.05, release: 0.08 },
+    filter: { enabled: true, type: 'lowpass', frequency: 900 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.25, wetDry: 0.1 },
+      reverb: { enabled: true, roomSize: 0.2, wetDry: 0.15 },
     },
   },
 };
@@ -320,12 +322,13 @@ const acousticGuitar: SynthPreset = {
   category: 'Guitar',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.005, decay: 0.4, sustain: 0.4, release: 0.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 6000 },
+    volume: 0.72,
+    envelope: { attack: 0.002, decay: 0.4, sustain: 0.3, release: 0.35 },
+    filter: { enabled: true, type: 'lowpass', frequency: 6500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.2 },
+      chorus: { enabled: true, rate: 0.4, depth: 0.15, wetDry: 0.1 },
     },
   },
 };
@@ -335,12 +338,12 @@ const nylonGuitar: SynthPreset = {
   category: 'Guitar',
   config: {
     oscillatorType: 'sine',
-    volume: 0.75,
-    envelope: { attack: 0.008, decay: 0.35, sustain: 0.35, release: 0.45 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    volume: 0.72,
+    envelope: { attack: 0.008, decay: 0.6, sustain: 0.15, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3200 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.55, wetDry: 0.3 },
+      reverb: { enabled: true, roomSize: 0.55, wetDry: 0.35 },
     },
   },
 };
@@ -350,30 +353,30 @@ const steelGuitar: SynthPreset = {
   category: 'Guitar',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.003, decay: 0.3, sustain: 0.45, release: 0.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 7000 },
+    volume: 0.72,
+    envelope: { attack: 0.002, decay: 0.4, sustain: 0.35, release: 0.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 7500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.2 },
-      chorus: { enabled: true, rate: 0.8, depth: 0.2, wetDry: 0.1 },
+      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.25 },
+      chorus: { enabled: true, rate: 0.6, depth: 0.25, wetDry: 0.15 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Bass Presets (5)
-// Characteristics: quick attack, full sustain, short release, lower filter
-// ============================================================================
+// Punchy low-end, controlled sustain, tight release, low filter cutoff
+// =============================================================================
 
 const subBass: SynthPreset = {
   name: 'Sub Bass',
   category: 'Bass',
   config: {
     oscillatorType: 'sine',
-    volume: 0.85,
-    envelope: { attack: 0.01, decay: 0.1, sustain: 0.95, release: 0.2 },
-    filter: { enabled: true, type: 'lowpass', frequency: 500 },
+    volume: 0.8,
+    envelope: { attack: 0.005, decay: 0.1, sustain: 0.95, release: 0.15 },
+    filter: { enabled: true, type: 'lowpass', frequency: 400 },
     effects: defaultEffectsOff,
   },
 };
@@ -383,12 +386,12 @@ const synthBass: SynthPreset = {
   category: 'Bass',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.75,
-    envelope: { attack: 0.005, decay: 0.15, sustain: 0.85, release: 0.15 },
-    filter: { enabled: true, type: 'lowpass', frequency: 1200 },
+    volume: 0.72,
+    envelope: { attack: 0.003, decay: 0.2, sustain: 0.7, release: 0.12 },
+    filter: { enabled: true, type: 'lowpass', frequency: 900 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 0.8, depth: 0.2, wetDry: 0.1 },
+      chorus: { enabled: true, rate: 0.6, depth: 0.2, wetDry: 0.15 },
     },
   },
 };
@@ -398,13 +401,10 @@ const punchyBass: SynthPreset = {
   category: 'Bass',
   config: {
     oscillatorType: 'square',
-    volume: 0.8,
-    envelope: { attack: 0.001, decay: 0.2, sustain: 0.7, release: 0.1 },
-    filter: { enabled: true, type: 'lowpass', frequency: 800 },
-    effects: {
-      ...defaultEffectsOff,
-      delay: { enabled: true, time: 0.1, feedback: 0.15, wetDry: 0.1 },
-    },
+    volume: 0.72,
+    envelope: { attack: 0.001, decay: 0.15, sustain: 0.5, release: 0.08 },
+    filter: { enabled: true, type: 'lowpass', frequency: 700 },
+    effects: defaultEffectsOff,
   },
 };
 
@@ -412,13 +412,13 @@ const warmBass: SynthPreset = {
   name: 'Warm Bass',
   category: 'Bass',
   config: {
-    oscillatorType: 'sine',
-    volume: 0.8,
-    envelope: { attack: 0.02, decay: 0.2, sustain: 0.9, release: 0.25 },
-    filter: { enabled: true, type: 'lowpass', frequency: 600 },
+    oscillatorType: 'triangle',
+    volume: 0.75,
+    envelope: { attack: 0.01, decay: 0.25, sustain: 0.8, release: 0.2 },
+    filter: { enabled: true, type: 'lowpass', frequency: 550 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 0.5, depth: 0.15, wetDry: 0.1 },
+      chorus: { enabled: true, rate: 0.4, depth: 0.15, wetDry: 0.1 },
     },
   },
 };
@@ -428,33 +428,33 @@ const growlBass: SynthPreset = {
   category: 'Bass',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.75,
-    envelope: { attack: 0.005, decay: 0.25, sustain: 0.75, release: 0.15 },
-    filter: { enabled: true, type: 'lowpass', frequency: 1500 },
+    volume: 0.7,
+    envelope: { attack: 0.003, decay: 0.3, sustain: 0.6, release: 0.12 },
+    filter: { enabled: true, type: 'lowpass', frequency: 1100 },
     effects: {
       ...defaultEffectsOff,
-      flanger: { enabled: true, rate: 0.3, depth: 0.4, feedback: 0.3, wetDry: 0.15 },
+      flanger: { enabled: true, rate: 0.4, depth: 0.7, feedback: 0.6, wetDry: 0.25 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Strings Presets (5)
-// Characteristics: slow attack, high sustain, slow release, warm tone
-// ============================================================================
+// Slow attack, high sustain, long release, lush layered effects
+// =============================================================================
 
 const violin: SynthPreset = {
   name: 'Violin',
   category: 'Strings',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.7,
-    envelope: { attack: 0.15, decay: 0.2, sustain: 0.85, release: 0.4 },
-    filter: { enabled: true, type: 'lowpass', frequency: 5000 },
+    volume: 0.65,
+    envelope: { attack: 0.12, decay: 0.15, sustain: 0.85, release: 0.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 5500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.25 },
-      chorus: { enabled: true, rate: 5.0, depth: 0.15, wetDry: 0.1 },
+      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.3 },
+      chorus: { enabled: true, rate: 5.0, depth: 0.12, wetDry: 0.15 },
     },
   },
 };
@@ -464,13 +464,13 @@ const cello: SynthPreset = {
   category: 'Strings',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.75,
-    envelope: { attack: 0.2, decay: 0.25, sustain: 0.8, release: 0.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3000 },
+    volume: 0.68,
+    envelope: { attack: 0.18, decay: 0.2, sustain: 0.8, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.55, wetDry: 0.3 },
-      chorus: { enabled: true, rate: 4.0, depth: 0.12, wetDry: 0.08 },
+      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.35 },
+      chorus: { enabled: true, rate: 4.5, depth: 0.15, wetDry: 0.12 },
     },
   },
 };
@@ -480,13 +480,13 @@ const stringEnsemble: SynthPreset = {
   category: 'Strings',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.7,
-    envelope: { attack: 0.3, decay: 0.3, sustain: 0.75, release: 0.6 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    volume: 0.65,
+    envelope: { attack: 0.35, decay: 0.3, sustain: 0.75, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.7, wetDry: 0.35 },
-      chorus: { enabled: true, rate: 2.5, depth: 0.4, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.75, wetDry: 0.4 },
+      chorus: { enabled: true, rate: 2.0, depth: 0.55, wetDry: 0.35 },
     },
   },
 };
@@ -496,13 +496,13 @@ const soloStrings: SynthPreset = {
   category: 'Strings',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.75,
-    envelope: { attack: 0.12, decay: 0.2, sustain: 0.85, release: 0.45 },
-    filter: { enabled: true, type: 'lowpass', frequency: 5500 },
+    volume: 0.68,
+    envelope: { attack: 0.1, decay: 0.15, sustain: 0.88, release: 0.45 },
+    filter: { enabled: true, type: 'lowpass', frequency: 6000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.2 },
-      chorus: { enabled: true, rate: 5.5, depth: 0.18, wetDry: 0.12 },
+      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.25 },
+      chorus: { enabled: true, rate: 5.2, depth: 0.1, wetDry: 0.12 },
     },
   },
 };
@@ -512,33 +512,33 @@ const pizzicato: SynthPreset = {
   category: 'Strings',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.8,
-    envelope: { attack: 0.001, decay: 0.2, sustain: 0.1, release: 0.2 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4500 },
+    volume: 0.75,
+    envelope: { attack: 0.001, decay: 0.18, sustain: 0.0, release: 0.15 },
+    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.5, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.55, wetDry: 0.35 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Pads Presets (5)
-// Characteristics: very slow attack, full sustain, long release, atmospheric
-// ============================================================================
+// Very slow attack, atmospheric, spacious effects, full sustain
+// =============================================================================
 
 const warmPad: SynthPreset = {
   name: 'Warm Pad',
   category: 'Pads',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.65,
-    envelope: { attack: 0.5, decay: 0.4, sustain: 0.8, release: 1.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3000 },
+    volume: 0.6,
+    envelope: { attack: 0.6, decay: 0.4, sustain: 0.8, release: 2.0 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.8, wetDry: 0.4 },
-      chorus: { enabled: true, rate: 0.8, depth: 0.5, wetDry: 0.3 },
+      reverb: { enabled: true, roomSize: 0.8, wetDry: 0.45 },
+      chorus: { enabled: true, rate: 0.6, depth: 0.6, wetDry: 0.4 },
     },
   },
 };
@@ -548,13 +548,13 @@ const ambientPad: SynthPreset = {
   category: 'Pads',
   config: {
     oscillatorType: 'sine',
-    volume: 0.6,
-    envelope: { attack: 0.8, decay: 0.5, sustain: 0.7, release: 2.0 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2500 },
+    volume: 0.58,
+    envelope: { attack: 1.0, decay: 0.5, sustain: 0.7, release: 3.0 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.9, wetDry: 0.5 },
-      delay: { enabled: true, time: 0.4, feedback: 0.4, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.9, wetDry: 0.55 },
+      delay: { enabled: true, time: 0.4, feedback: 0.45, wetDry: 0.3 },
     },
   },
 };
@@ -564,13 +564,13 @@ const choirPad: SynthPreset = {
   category: 'Pads',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.6,
-    envelope: { attack: 0.6, decay: 0.4, sustain: 0.75, release: 1.2 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3500 },
+    volume: 0.58,
+    envelope: { attack: 0.7, decay: 0.4, sustain: 0.75, release: 1.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3000 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.75, wetDry: 0.4 },
-      chorus: { enabled: true, rate: 1.2, depth: 0.6, wetDry: 0.35 },
+      reverb: { enabled: true, roomSize: 0.8, wetDry: 0.45 },
+      chorus: { enabled: true, rate: 1.5, depth: 0.7, wetDry: 0.45 },
     },
   },
 };
@@ -580,13 +580,13 @@ const sweepPad: SynthPreset = {
   category: 'Pads',
   config: {
     oscillatorType: 'sawtooth',
-    volume: 0.65,
-    envelope: { attack: 0.7, decay: 0.5, sustain: 0.7, release: 1.8 },
-    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    volume: 0.6,
+    envelope: { attack: 0.8, decay: 0.5, sustain: 0.7, release: 2.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.7, wetDry: 0.35 },
-      flanger: { enabled: true, rate: 0.2, depth: 0.6, feedback: 0.4, wetDry: 0.3 },
+      reverb: { enabled: true, roomSize: 0.75, wetDry: 0.4 },
+      flanger: { enabled: true, rate: 0.15, depth: 0.7, feedback: 0.5, wetDry: 0.4 },
     },
   },
 };
@@ -597,19 +597,19 @@ const darkPad: SynthPreset = {
   config: {
     oscillatorType: 'square',
     volume: 0.55,
-    envelope: { attack: 0.9, decay: 0.6, sustain: 0.65, release: 2.5 },
-    filter: { enabled: true, type: 'lowpass', frequency: 1500 },
+    envelope: { attack: 1.2, decay: 0.6, sustain: 0.6, release: 3.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 1200 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.85, wetDry: 0.45 },
-      delay: { enabled: true, time: 0.5, feedback: 0.35, wetDry: 0.2 },
+      reverb: { enabled: true, roomSize: 0.9, wetDry: 0.5 },
+      delay: { enabled: true, time: 0.5, feedback: 0.4, wetDry: 0.25 },
     },
   },
 };
 
-// ============================================================================
+// =============================================================================
 // Preset Collections
-// ============================================================================
+// =============================================================================
 
 /**
  * All synthesizer presets organized by category.
