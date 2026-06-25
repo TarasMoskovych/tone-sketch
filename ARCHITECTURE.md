@@ -7,6 +7,7 @@ This document explains how Tone Sketch works under the hood — the rendering pi
 - [System Overview](#system-overview)
 - [Canvas Rendering](#canvas-rendering)
 - [Audio Synthesis](#audio-synthesis)
+- [Presets](#presets)
 - [Playback System](#playback-system)
 - [State Management](#state-management)
 
@@ -259,6 +260,63 @@ frequency = 440 * Math.pow(2, (midiNote - 69) / 12)
 // C5 (MIDI 72) = 523.25 Hz
 ```
 
+### Presets
+
+A preset is a complete snapshot of synthesizer settings. There are 35 presets across 7 categories:
+
+| Category | Characteristics | Examples |
+|----------|----------------|----------|
+| Piano | Longer attack, smooth sustain, moderate release | Acoustic, Electric, Soft, Bright, Warm |
+| Lead | Quick attack, high sustain, brighter filter | Classic, Saw, Square, Sine, Detuned |
+| Pluck | Quick attack, short decay, low sustain | Short, Soft, Bright, Bell, Muted |
+| Guitar | Moderate attack, medium sustain | Clean, Muted, Acoustic, Nylon, Steel |
+| Bass | Quick attack, full sustain, lower filter | Sub, Synth, Punchy, Warm, Growl |
+| Strings | Slow attack, high sustain, warm tone | Violin, Cello, Ensemble, Solo, Pizzicato |
+| Pads | Very slow attack, full sustain, long release | Warm, Ambient, Choir, Sweep, Dark |
+
+**Preset structure:**
+
+```typescript
+interface SynthPreset {
+  name: PresetName;           // e.g., 'Electric Piano'
+  category: PresetCategory;   // e.g., 'Piano'
+  config: {
+    oscillatorType: OscillatorType;  // sine, square, sawtooth, triangle
+    volume: number;                  // 0-1
+    envelope: ADSREnvelope;          // attack, decay, sustain, release
+    filter: FilterConfig;            // type, frequency, enabled
+    effects: EffectsConfig;          // reverb, delay, chorus, flanger
+  };
+}
+```
+
+**Example preset — Electric Piano:**
+
+```typescript
+{
+  name: 'Electric Piano',
+  category: 'Piano',
+  config: {
+    oscillatorType: 'sine',
+    volume: 0.75,
+    envelope: { attack: 0.01, decay: 0.4, sustain: 0.35, release: 0.6 },
+    filter: { enabled: true, type: 'lowpass', frequency: 4000 },
+    effects: {
+      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.2 },
+      delay: { enabled: false, time: 0.25, feedback: 0.3, wetDry: 0.3 },
+      chorus: { enabled: true, rate: 1.2, depth: 0.4, wetDry: 0.25 },
+      flanger: { enabled: false, rate: 0.5, depth: 0.5, feedback: 0.5, wetDry: 0.3 },
+    },
+  },
+}
+```
+
+When a preset is applied:
+1. All config values are copied to the synthesizer
+2. Tone.js nodes update in real-time (oscillator, envelope, filter, effects)
+3. Audio chain reconnects if filter enabled state changes
+4. Changes apply within 50ms without stopping playback
+
 ---
 
 ## Playback System
@@ -409,7 +467,9 @@ User Interaction
 | `hooks/usePianoRoll.ts` | Note and selection state management |
 | `hooks/usePlayback.ts` | Transport and playhead control |
 | `hooks/useSynthesizer.ts` | Synthesizer configuration |
-| `lib/synthesizer.ts` | Core Tone.js setup and presets |
+| `lib/synthesizer.ts` | Core Tone.js setup and audio chain |
+| `lib/presets.ts` | All 35 synthesizer presets |
 | `lib/note-utils.ts` | MIDI/frequency conversions |
+| `types/synth.ts` | Synthesizer type definitions |
 | `types/note.ts` | Note data structure |
 | `types/grid.ts` | Grid and visible region types |
