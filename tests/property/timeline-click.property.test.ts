@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import type { VisibleRegion } from '../../types/grid';
-import { CANVAS_CONFIG } from '../../components/PianoRollCanvas';
+import { CANVAS_CONFIG } from '../../components/PianoRoll';
 
 /**
  * Feature: tone-sketch, Property 9: Timeline Click Positions Playhead

@@ -1,5 +1,5 @@
-export { PianoRollCanvas, CANVAS_CONFIG } from './PianoRollCanvas';
-export type { PianoRollCanvasProps, SelectionModifiers } from './PianoRollCanvas';
+export { PianoRollCanvas, CANVAS_CONFIG } from './PianoRoll';
+export type { PianoRollCanvasProps, SelectionModifiers } from './PianoRoll';
 
 export { TransportControls } from './TransportControls';
 export type { TransportControlsProps } from './TransportControls';
