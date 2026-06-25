@@ -2230,7 +2230,12 @@ export function PianoRollCanvas({
     const pixelsPerSemitone = gridHeight / visibleSemitones;
 
     // Draw pitch rows (horizontal bands)
-    for (let pitch = visibleRegion.startPitch; pitch < visibleRegion.endPitch; pitch++) {
+    // Note: visibleRegion pitch values can be floats, but MIDI pitches are integers
+    // We iterate through integer pitches that fall within the visible range
+    const startPitchInt = Math.floor(visibleRegion.startPitch);
+    const endPitchInt = Math.ceil(visibleRegion.endPitch);
+
+    for (let pitch = startPitchInt; pitch < endPitchInt; pitch++) {
       const relativePitch = pitch - visibleRegion.startPitch;
       // Y increases downward, pitch increases upward
       const y = gridY + gridHeight - ((relativePitch + 1) * pixelsPerSemitone);
@@ -2269,7 +2274,7 @@ export function PianoRollCanvas({
     // Draw pitch row lines (horizontal)
     ctx.strokeStyle = PITCH_ROW_COLOR;
     ctx.lineWidth = 0.5;
-    for (let pitch = visibleRegion.startPitch; pitch <= visibleRegion.endPitch; pitch++) {
+    for (let pitch = startPitchInt; pitch <= endPitchInt; pitch++) {
       const relativePitch = pitch - visibleRegion.startPitch;
       const y = gridY + gridHeight - (relativePitch * pixelsPerSemitone);
 
