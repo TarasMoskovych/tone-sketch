@@ -107,6 +107,8 @@ tone-sketch/
 └── types/              # TypeScript type definitions
 ```
 
+📖 See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deep dive into the rendering pipeline, audio synthesis, and how it all works.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
