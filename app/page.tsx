@@ -1,12 +1,15 @@
-'use client';
-
 import Link from 'next/link';
 import { MelodyFeed, ErrorBoundary } from '@/components';
+import { getMelodiesPaginated } from '@/lib/melodies';
+
+// This page fetches fresh data on every request
+export const dynamic = 'force-dynamic';
 
 /**
- * Homepage component
+ * Homepage component (Server Component)
  *
- * Displays the public melody feed with navigation to create new melodies.
+ * Fetches initial melody data server-side for faster first paint and SEO,
+ * then hands off to the client-side MelodyFeed for interactivity and infinite scroll.
  *
  * Requirements:
  * - 22.1: Display first 20 melodies ordered by creation date (newest first)
@@ -16,7 +19,17 @@ import { MelodyFeed, ErrorBoundary } from '@/components';
  * - 22.5: Load feed data using GET /api/melodies
  * - 22.6: Display empty state when no melodies available
  */
-export default function HomePage() {
+export default async function HomePage() {
+  let initialMelodies;
+
+  try {
+    const data = await getMelodiesPaginated(1, 20);
+    initialMelodies = data.melodies;
+  } catch {
+    // If DB fetch fails, let the client-side handle it
+    initialMelodies = undefined;
+  }
+
   return (
     <ErrorBoundary
       errorTitle="Page Error"
@@ -26,7 +39,6 @@ export default function HomePage() {
         {/* Header */}
         <header className="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
           <div className="flex items-center gap-4">
-            {/* Logo / App name */}
             <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <svg
                 className="w-8 h-8 text-indigo-500"
@@ -40,7 +52,6 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            {/* Create Button - navigates to /create */}
             <Link
               href="/create"
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
@@ -63,7 +74,6 @@ export default function HomePage() {
         {/* Main content area */}
         <main className="flex-1 overflow-auto">
           <div className="max-w-3xl mx-auto px-4 py-6">
-            {/* Page title */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-100">Discover Melodies</h2>
               <p className="mt-1 text-gray-400">
@@ -71,13 +81,12 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Melody Feed with Error Boundary */}
             <ErrorBoundary
               errorTitle="Feed Error"
               errorMessage="Could not load the melody feed. Please try again."
               showHomeButton={false}
             >
-              <MelodyFeed />
+              <MelodyFeed initialMelodies={initialMelodies} />
             </ErrorBoundary>
           </div>
         </main>

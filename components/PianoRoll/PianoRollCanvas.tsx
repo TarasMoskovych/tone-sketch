@@ -53,6 +53,7 @@ export function PianoRollCanvas({
   onTogglePlayback,
   keyboardShortcutsEnabled = true,
   onSelectAll,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   highlightedPitch: _highlightedPitch = undefined,
   activePitches = new Set(),
   autoScrollDuringPlayback = true,
