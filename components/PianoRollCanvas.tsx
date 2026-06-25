@@ -6,6 +6,7 @@ import type { Note } from '@/types/note';
 import { snapPosition, getMinimumDuration } from '@/utils/grid-snap';
 import { midiToNoteName, isBlackKey } from '@/lib/note-utils';
 import { useKeyboardShortcuts } from '@/hooks';
+import { isPlatformModifierKey, getNoteRange, getNotesInRect, calculateGroupMoveConstraints } from '@/lib/selection-utils';
 
 /**
  * Configuration constants for the piano roll canvas
@@ -94,6 +95,18 @@ const DEFAULT_GRID_SNAP_CONFIG: GridSnapConfig = {
 };
 
 /**
+ * Modifier key state for selection operations
+ * Used to track Ctrl/Cmd and Shift key states during note selection
+ * Requirements: 1.3, 1.4, 1.5 - Modifier keys for selection behavior
+ */
+export interface SelectionModifiers {
+  /** True if Ctrl (Windows/Linux) or Cmd (macOS) is pressed */
+  ctrlOrCmd: boolean;
+  /** True if Shift key is pressed */
+  shift: boolean;
+}
+
+/**
  * Props for the PianoRollCanvas component
  */
 export interface PianoRollCanvasProps {
@@ -125,8 +138,42 @@ export interface PianoRollCanvasProps {
   onNoteDelete?: (noteId: string) => void;
   /**
    * Callback when note selection changes (e.g., clicking on a note)
+   * Requirements: 1.1, 1.3, 1.4, 1.5 - Click selection with modifier keys
+   *
+   * @param noteId - The ID of the clicked note, or null if clicking empty space
+   * @param modifiers - The modifier key state when the click occurred
    */
-  onNoteSelect?: (noteId: string | null) => void;
+  onNoteSelect?: (noteId: string | null, modifiers?: SelectionModifiers) => void;
+  /**
+   * Callback to toggle a note's selection state (Ctrl/Cmd + click)
+   * Requirements: 1.3, 1.4 - Toggle selection with modifier key
+   */
+  onToggleNoteSelection?: (noteId: string) => void;
+  /**
+   * Callback to add notes to the current selection (for range selection)
+   * Requirements: 1.5 - Shift-click range selection
+   */
+  onAddToSelection?: (noteIds: string[]) => void;
+  /**
+   * Callback to clear all note selections
+   * Requirements: 1.2 - Click on empty clears selection
+   */
+  onDeselectAll?: () => void;
+  /**
+   * Callback to set the selection anchor for Shift-click range selection
+   * Requirements: 1.5, 1.6 - Anchor tracking for range selection
+   */
+  onSetSelectionAnchor?: (noteId: string | null) => void;
+  /**
+   * The current selection anchor note ID (for Shift-click range selection)
+   * Requirements: 1.5, 1.6 - Anchor for range selection
+   */
+  selectionAnchor?: string | null;
+  /**
+   * Callback for batch updating multiple notes at once (for group movement)
+   * Requirements: 4.1, 4.2, 4.3 - Group movement updates multiple notes
+   */
+  onBulkNoteUpdate?: (updates: Map<string, Partial<Note>>) => void;
   /** Callback when the visible region changes */
   onVisibleRegionChange?: (region: VisibleRegion) => void;
   /**
@@ -152,6 +199,15 @@ export interface PianoRollCanvasProps {
    * Defaults to true
    */
   keyboardShortcutsEnabled?: boolean;
+  /**
+   * Callback to select all notes (Ctrl+A/Cmd+A)
+   * Requirements: 6.1 - Select All selects all notes in the melody
+   *
+   * Property 18: Select All Selects Entire Melody
+   * - For any non-empty set of notes in the melody, when Select All is triggered,
+   *   the resulting selection SHALL contain exactly all note IDs in the melody
+   */
+  onSelectAll?: () => void;
   /**
    * Currently highlighted pitch from keyboard piano (most recently pressed key)
    * Requirement 40.5: Highlight piano row background when keyboard piano key is held
@@ -193,12 +249,16 @@ interface DragState {
   note: Note;
   /** Original note state before drag started (for cancel/restore) */
   originalNote: Note;
+  /** Original states of ALL selected notes before drag started (for group move) - Requirements: 4.1 */
+  originalSelectedNotes: Map<string, Note>;
   /** Starting X position of the drag in pixels */
   startX: number;
   /** Starting Y position of the drag in pixels */
   startY: number;
   /** Mode of the drag operation: 'move' for position changes, 'resize' for duration changes */
   mode: 'move' | 'resize';
+  /** Whether this is a group operation (multiple notes selected) - Requirements: 4.1 */
+  isGroupDrag: boolean;
 }
 
 /**
@@ -214,6 +274,25 @@ interface ScrollbarDragState {
   initialScrollPosition: number;
   /** Initial visible region when drag began */
   initialVisibleRegion: VisibleRegion;
+}
+
+/**
+ * State for tracking marquee (rectangle) selection operations
+ * Requirements: 2.1 - Click and drag on empty area displays selection rectangle
+ */
+interface MarqueeState {
+  /** Starting X position of the marquee in pixels */
+  startX: number;
+  /** Starting Y position of the marquee in pixels */
+  startY: number;
+  /** Current X position of the marquee in pixels */
+  currentX: number;
+  /** Current Y position of the marquee in pixels */
+  currentY: number;
+  /** Note IDs that were selected before the marquee started (for additive mode) */
+  previousSelection: Set<string>;
+  /** Whether modifier key was held (for additive selection) */
+  isAdditive: boolean;
 }
 
 /**
@@ -301,13 +380,18 @@ export function PianoRollCanvas({
   onNoteCreate,
   onNoteUpdate,
   onNoteDelete,
-  // Note selection callback is part of the interface but not yet implemented
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onNoteSelect,
+  onToggleNoteSelection,
+  onAddToSelection,
+  onDeselectAll,
+  onSetSelectionAnchor,
+  selectionAnchor,
+  onBulkNoteUpdate,
   onVisibleRegionChange,
   onPlayheadChange,
   onTogglePlayback,
   keyboardShortcutsEnabled = true,
+  onSelectAll,
   // highlightedPitch is kept for API compatibility but activePitches is preferred
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   highlightedPitch,
@@ -361,6 +445,10 @@ export function PianoRollCanvas({
   // Requirements: 34.3, 34.4, 34.5 - Track scrollbar drag for scroll position updates
   const [scrollbarDragState, setScrollbarDragState] = useState<ScrollbarDragState | null>(null);
 
+  // State for tracking marquee (rectangle) selection operations
+  // Requirements: 2.1 - Track marquee selection for multi-note selection
+  const [marqueeState, setMarqueeState] = useState<MarqueeState | null>(null);
+
   // State for tracking if mouse is over a resize handle
   // Requirements: 5.1 - Show resize cursor when hovering over right edge
   const [isOverResizeHandle, setIsOverResizeHandle] = useState(false);
@@ -378,16 +466,24 @@ export function PianoRollCanvas({
 
   /**
    * Handler for deleting selected notes via keyboard shortcut
-   * Requirements: 6.1 - Delete/Backspace key removes selected notes
+   * Requirements: 5.1, 5.4 - Delete/Backspace key removes all selected notes
    *
    * Property 7: Note Deletion Removes from Melody
    * - For any Note in a Melody, when the Note is deleted (via Delete/Backspace key),
    *   the Note SHALL no longer exist in the Melody's notes array
+   *
+   * Property 15: Group Deletion Removes All Selected Notes
+   * - All selected notes SHALL be removed, unselected notes SHALL remain
+   *
+   * Property 17: Selection Cleared After Deletion
+   * - Selection SHALL be empty after deletion (handled by deleteNote removing
+   *   each deleted note's ID from selectedNoteIds)
    */
   const handleDeleteNoteShortcut = useCallback(() => {
     if (!onNoteDelete) return;
 
-    // Delete all selected notes
+    // Delete all selected notes (Property 15)
+    // Selection is automatically cleared as each note is deleted (Property 17)
     for (const noteId of selectedNoteIds) {
       onNoteDelete(noteId);
     }
@@ -414,6 +510,7 @@ export function PianoRollCanvas({
    * The hook:
    * - Handles Space bar to toggle playback when canvas has focus
    * - Handles Delete/Backspace to delete selected notes
+   * - Handles Ctrl+A/Cmd+A to select all notes
    * - Prevents default browser behavior (scroll on Space, back navigation on Backspace)
    * - Ignores shortcuts when user is typing in text input fields
    * - Only responds when the container element has focus
@@ -422,6 +519,7 @@ export function PianoRollCanvas({
     enabled: keyboardShortcutsEnabled,
     onTogglePlayback: handleTogglePlaybackShortcut,
     onDeleteNote: handleDeleteNoteShortcut,
+    onSelectAll,
     containerRef,
   });
 
@@ -1066,13 +1164,18 @@ export function PianoRollCanvas({
   }, [pixelXToBeat, pixelYToPitch, findNoteAtPosition, isOnResizeHandle]);
 
   /**
-   * Handles mouse down on the canvas for initiating note drag or resize, or scrollbar drag
+   * Handles mouse down on the canvas for initiating note drag or resize, scrollbar drag, or marquee selection
    * Requirements: 3.1, 3.5 - Track drag start position and original note state
    * Requirements: 4.1, 4.2, 4.3 - Track vertical drag for pitch changes
    * Requirements: 5.1 - Detect right edge for resize operations
    * Requirements: 34.3 - Initiate scrollbar drag operations
+   * Requirements: 2.1 - Click and drag on empty area starts marquee selection
    */
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    // Only handle left mouse button (button 0)
+    // Right-click is handled by handleContextMenu
+    if (event.button !== 0) return;
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -1110,18 +1213,55 @@ export function PianoRollCanvas({
 
     if (result && onNoteUpdate) {
       const { note: clickedNote, isResize } = result;
+
+      // Check if clicked note is part of the current selection (for group drag)
+      // Requirements: 4.1 - Clicking on a selected note starts group movement
+      const isClickedNoteSelected = selectedNoteIds.has(clickedNote.id);
+      const hasMultipleSelected = selectedNoteIds.size > 1;
+      const shouldGroupDrag = isClickedNoteSelected && hasMultipleSelected && !isResize;
+
+      // Capture original positions of ALL selected notes for group drag
+      // Requirements: 4.1, 4.7 - Store original positions for group movement and cancel/restore
+      const originalSelectedNotes = new Map<string, Note>();
+      if (shouldGroupDrag) {
+        for (const noteId of selectedNoteIds) {
+          const note = notes.find(n => n.id === noteId);
+          if (note) {
+            originalSelectedNotes.set(noteId, { ...note });
+          }
+        }
+      }
+
       // Start dragging/resizing this note
       setDragState({
         note: { ...clickedNote },
         originalNote: { ...clickedNote },
+        originalSelectedNotes,
         startX: clickX,
         startY: clickY,
         mode: isResize ? 'resize' : 'move',
+        isGroupDrag: shouldGroupDrag,
       });
       // Prevent default to avoid text selection during drag
       event.preventDefault();
+    } else {
+      // Click on empty area: start marquee selection
+      // Requirements: 2.1 - Click and drag on empty area displays selection rectangle
+      // Store previous selection for potential cancel (Property 8)
+      // Detect if Ctrl/Cmd held for additive mode (Property 7)
+      const isAdditive = isPlatformModifierKey(event.nativeEvent);
+
+      setMarqueeState({
+        startX: clickX,
+        startY: clickY,
+        currentX: clickX,
+        currentY: clickY,
+        previousSelection: new Set(selectedNoteIds),
+        isAdditive,
+      });
+      event.preventDefault();
     }
-  }, [findNoteAtPixelPosition, onNoteUpdate, getScrollbarAtPosition, visibleRegion, effectiveTotalBeats]);
+  }, [findNoteAtPixelPosition, onNoteUpdate, getScrollbarAtPosition, visibleRegion, effectiveTotalBeats, selectedNoteIds, notes]);
 
   /**
    * Handles mouse move for dragging notes (horizontal and vertical) or resizing
@@ -1142,6 +1282,11 @@ export function PianoRollCanvas({
    * - Applies grid snap to end time when enabled
    * - Enforces minimum duration based on grid snap state
    * - Updates at 60fps
+   *
+   * Requirements: 4.1, 4.2, 4.3 (group movement)
+   * - Moves ALL selected notes together maintaining relative positions (Property 10)
+   * - Applies grid snap to primary note, uses same delta for others (Property 11, 12)
+   * - Constrains movement to keep all notes within valid bounds (Property 13)
    *
    * Property 4: Note Boundary Clamping
    * - The start time SHALL be clamped to the range [0, ∞)
@@ -1199,8 +1344,78 @@ export function PianoRollCanvas({
         ...dragState.note,
         duration: clampedDuration,
       };
+
+      // Update drag state with current note position
+      setDragState(prev => prev ? { ...prev, note: updatedNote } : null);
+
+      // Call the update callback for single note resize
+      onNoteUpdate(updatedNote);
+    } else if (dragState.isGroupDrag && dragState.originalSelectedNotes.size > 0) {
+      // Group move mode: move ALL selected notes together
+      // Requirements: 4.1, 4.2, 4.3 - Group movement
+
+      // Calculate new start time for primary note (horizontal)
+      const rawNewStart = dragState.originalNote.start + deltaBeat;
+
+      // Apply grid snap to primary note if enabled (Property 11)
+      const snappedStart = snapPosition(rawNewStart, gridSnap);
+
+      // Calculate actual beat delta after snapping (for applying to all notes)
+      const snappedDeltaBeat = snappedStart - dragState.originalNote.start;
+
+      // Calculate the delta in pixels (vertical)
+      const deltaY = currentY - dragState.startY;
+
+      // Convert pixel delta to pitch delta (vertical pitch adjustment)
+      // Y increases downward, pitch increases upward, so we negate
+      const rawDeltaPitch = -(deltaY / gridHeight) * visibleSemitones;
+
+      // Round to nearest integer - all notes move by same pitch delta (Property 12)
+      const deltaPitch = Math.round(rawDeltaPitch);
+
+      // Get all selected notes for constraint calculation
+      const selectedNotes = Array.from(dragState.originalSelectedNotes.values());
+
+      // Apply constraints to keep ALL notes within valid bounds (Property 13)
+      const { constrainedDeltaBeat, constrainedDeltaPitch } = calculateGroupMoveConstraints(
+        selectedNotes,
+        snappedDeltaBeat,
+        deltaPitch
+      );
+
+      // Update primary note for drag state tracking
+      updatedNote = {
+        ...dragState.note,
+        start: dragState.originalNote.start + constrainedDeltaBeat,
+        pitch: dragState.originalNote.pitch + constrainedDeltaPitch,
+      };
+
+      // Update drag state with current primary note position
+      setDragState(prev => prev ? { ...prev, note: updatedNote } : null);
+
+      // Update ALL selected notes with constrained deltas (Property 10)
+      if (onBulkNoteUpdate) {
+        // Use bulk update if available (more efficient)
+        const updates = new Map<string, Partial<Note>>();
+        for (const [noteId, originalNote] of dragState.originalSelectedNotes) {
+          updates.set(noteId, {
+            start: originalNote.start + constrainedDeltaBeat,
+            pitch: originalNote.pitch + constrainedDeltaPitch,
+          });
+        }
+        onBulkNoteUpdate(updates);
+      } else {
+        // Fall back to individual updates
+        for (const [noteId, originalNote] of dragState.originalSelectedNotes) {
+          onNoteUpdate({
+            ...originalNote,
+            start: originalNote.start + constrainedDeltaBeat,
+            pitch: originalNote.pitch + constrainedDeltaPitch,
+          });
+        }
+      }
     } else {
-      // Move mode: update start time and pitch
+      // Single note move mode: update start time and pitch
       // Calculate new start time (horizontal)
       const rawNewStart = dragState.originalNote.start + deltaBeat;
 
@@ -1232,24 +1447,116 @@ export function PianoRollCanvas({
         start: clampedStart,
         pitch: clampedPitch,
       };
+
+      // Update drag state with current note position
+      setDragState(prev => prev ? { ...prev, note: updatedNote } : null);
+
+      // Call the update callback
+      onNoteUpdate(updatedNote);
     }
+  }, [dragState, onNoteUpdate, onBulkNoteUpdate, visibleRegion, gridSnap]);
 
-    // Update drag state with current note position
-    setDragState(prev => prev ? { ...prev, note: updatedNote } : null);
+  /**
+   * Handles mouse move during marquee selection
+   * Requirements: 2.1 - Update marquee rectangle as user drags
+   * Requirements: 2.2 - Calculate intersecting notes during drag
+   *
+   * Updates the marquee state with current mouse position and calculates
+   * which notes intersect with the selection rectangle.
+   *
+   * @param event Mouse event with current position
+   */
+  const handleMarqueeMove = useCallback((event: MouseEvent) => {
+    if (!marqueeState) return;
 
-    // Call the update callback
-    onNoteUpdate(updatedNote);
-  }, [dragState, onNoteUpdate, visibleRegion, gridSnap]);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const currentX = event.clientX - rect.left;
+    const currentY = event.clientY - rect.top;
+
+    // Update marquee state with current position
+    setMarqueeState(prev => prev ? { ...prev, currentX, currentY } : null);
+
+    // Calculate intersecting notes for preview highlighting
+    const { PITCH_LABEL_WIDTH, TIME_MARKER_HEIGHT, SCROLLBAR_WIDTH, SCROLLBAR_HEIGHT } = CANVAS_CONFIG;
+    const gridWidth = rect.width - PITCH_LABEL_WIDTH - SCROLLBAR_WIDTH;
+    const gridHeight = rect.height - TIME_MARKER_HEIGHT - SCROLLBAR_HEIGHT;
+    const visibleBeats = visibleRegion.endBeat - visibleRegion.startBeat;
+    const visibleSemitones = visibleRegion.endPitch - visibleRegion.startPitch;
+
+    // Convert marquee pixel coordinates to beat/pitch coordinates
+    // Clamp coordinates to grid boundaries
+    const clampedStartX = Math.max(PITCH_LABEL_WIDTH, Math.min(marqueeState.startX, rect.width - SCROLLBAR_WIDTH));
+    const clampedStartY = Math.max(TIME_MARKER_HEIGHT, Math.min(marqueeState.startY, rect.height - SCROLLBAR_HEIGHT));
+    const clampedCurrentX = Math.max(PITCH_LABEL_WIDTH, Math.min(currentX, rect.width - SCROLLBAR_WIDTH));
+    const clampedCurrentY = Math.max(TIME_MARKER_HEIGHT, Math.min(currentY, rect.height - SCROLLBAR_HEIGHT));
+
+    const gridStartX = clampedStartX - PITCH_LABEL_WIDTH;
+    const gridCurrentX = clampedCurrentX - PITCH_LABEL_WIDTH;
+    const gridStartY = clampedStartY - TIME_MARKER_HEIGHT;
+    const gridCurrentY = clampedCurrentY - TIME_MARKER_HEIGHT;
+
+    // Convert to beats
+    const startBeat = visibleRegion.startBeat + (Math.min(gridStartX, gridCurrentX) / gridWidth) * visibleBeats;
+    const endBeat = visibleRegion.startBeat + (Math.max(gridStartX, gridCurrentX) / gridWidth) * visibleBeats;
+
+    // Convert to pitch (Y is inverted - higher Y = lower pitch)
+    const topY = Math.min(gridStartY, gridCurrentY);
+    const bottomY = Math.max(gridStartY, gridCurrentY);
+    const startPitch = visibleRegion.endPitch - (bottomY / gridHeight) * visibleSemitones;
+    const endPitch = visibleRegion.endPitch - (topY / gridHeight) * visibleSemitones;
+
+    // Get intersecting notes
+    const intersectingIds = getNotesInRect(notes, {
+      startBeat,
+      endBeat,
+      startPitch,
+      endPitch,
+    }, visibleRegion);
+
+    // Update selection preview based on additive mode
+    // Property 6: Replace mode - selection equals intersecting notes
+    // Property 7: Additive mode - selection equals union of previous and intersecting
+    if (marqueeState.isAdditive) {
+      // Additive mode: union of previous selection and intersecting notes
+      const newSelection = new Set(marqueeState.previousSelection);
+      for (const id of intersectingIds) {
+        newSelection.add(id);
+      }
+      // Update selection with onAddToSelection or by selecting all notes
+      if (onAddToSelection) {
+        // Call with all note IDs that should be in selection
+        const idsToAdd = intersectingIds.filter(id => !marqueeState.previousSelection.has(id));
+        if (idsToAdd.length > 0) {
+          onAddToSelection(idsToAdd);
+        }
+      }
+    } else {
+      // Replace mode: selection equals intersecting notes only
+      // Use onNoteSelect with the first intersecting note or deselect all if none
+      if (intersectingIds.length > 0 && onAddToSelection && onDeselectAll) {
+        // First deselect all, then add intersecting notes
+        onDeselectAll();
+        onAddToSelection(intersectingIds);
+      } else if (intersectingIds.length === 0 && onDeselectAll) {
+        onDeselectAll();
+      }
+    }
+  }, [marqueeState, visibleRegion, notes, onAddToSelection, onDeselectAll]);
 
   /**
    * Handles mouse move on the canvas to update hover state for resize cursor, timeline, and scrollbars
+   * Also handles marquee selection drag
    * Requirements: 5.1 - Show resize cursor (ew-resize) when hovering over right edge
    * Requirement 8.5 - Show pointer cursor when hovering over timeline for playhead positioning
    * Requirements: 34.3 - Show grab cursor when hovering over scrollbar thumbs
+   * Requirements: 2.1 - Update marquee rectangle during drag
    */
   const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     // Don't update hover state while dragging - the drag cursor takes precedence
-    if (dragState || scrollbarDragState) return;
+    if (dragState || scrollbarDragState || marqueeState) return;
 
     const container = containerRef.current;
     if (!container) return;
@@ -1291,7 +1598,7 @@ export function PianoRollCanvas({
     // Check if mouse is over a note's resize handle
     const result = findNoteAtPixelPosition(mouseX, mouseY);
     setIsOverResizeHandle(result?.isResize ?? false);
-  }, [dragState, scrollbarDragState, findNoteAtPixelPosition, getScrollbarAtPosition]);
+  }, [dragState, scrollbarDragState, marqueeState, findNoteAtPixelPosition, getScrollbarAtPosition]);
 
   /**
    * Handles mouse leave on the canvas to reset hover state
@@ -1306,11 +1613,16 @@ export function PianoRollCanvas({
 
   /**
    * Handles right-click (context menu) for note deletion
-   * Requirements: 6.2 - Right-click on a Note removes it from the Melody
+   * Requirements: 5.2, 5.3 - Right-click deletion with multi-selection support
    *
-   * Property 7: Note Deletion Removes from Melody
-   * - For any Note in a Melody, when the Note is deleted (via right-click),
-   *   the Note SHALL no longer exist in the Melody's notes array
+   * Property 15: Group Deletion Removes All Selected Notes
+   * - When right-clicking on a selected note, all selected notes are deleted
+   *
+   * Property 16: Right-Click on Unselected Deletes Only Clicked Note
+   * - When right-clicking on an unselected note, only that note is deleted
+   *
+   * Property 17: Selection Cleared After Deletion
+   * - Selection is cleared after group deletion
    */
   const handleContextMenu = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const container = containerRef.current;
@@ -1337,14 +1649,32 @@ export function PianoRollCanvas({
     const result = findNoteAtPixelPosition(clickX, clickY);
 
     if (result) {
-      // Delete the note that was right-clicked
-      onNoteDelete(result.note.id);
+      const clickedNoteId = result.note.id;
+
+      // Check if the clicked note is in the current selection
+      if (selectedNoteIds.has(clickedNoteId)) {
+        // Property 15: Delete ALL selected notes when right-clicking on a selected note
+        for (const noteId of selectedNoteIds) {
+          onNoteDelete(noteId);
+        }
+        // Property 17: Clear selection after group deletion
+        if (onDeselectAll) {
+          onDeselectAll();
+        }
+      } else {
+        // Property 16: Delete only the clicked note if it's not in the selection
+        onNoteDelete(clickedNoteId);
+      }
     }
-  }, [onNoteDelete, findNoteAtPixelPosition]);
+  }, [onNoteDelete, findNoteAtPixelPosition, selectedNoteIds, onDeselectAll]);
 
   /**
-   * Handles mouse up to complete the drag operation
+   * Handles mouse up to complete the drag operation or finalize marquee selection
    * Requirements: 3.1 - Finalizes the note position update
+   * Requirements: 2.3, 2.4 - Finalize marquee selection with replace or additive mode
+   *
+   * Property 6: Marquee Selection Replace Mode - without modifier, selection equals intersecting notes
+   * Property 7: Marquee Selection Additive Mode - with Ctrl/Cmd, selection equals union of previous and intersecting
    */
   const handleMouseUp = useCallback(() => {
     if (dragState) {
@@ -1357,11 +1687,96 @@ export function PianoRollCanvas({
       // Clear drag state - the note update was already called via onNoteUpdate
       setDragState(null);
     }
-  }, [dragState]);
+
+    if (marqueeState) {
+      // Check if user actually dragged (not just a click)
+      // A simple click should create a note, not be treated as a zero-size marquee
+      const MIN_MARQUEE_DISTANCE = 5; // pixels
+      const dragDistance = Math.sqrt(
+        Math.pow(marqueeState.currentX - marqueeState.startX, 2) +
+        Math.pow(marqueeState.currentY - marqueeState.startY, 2)
+      );
+      const wasActualDrag = dragDistance >= MIN_MARQUEE_DISTANCE;
+
+      if (wasActualDrag) {
+        const container = containerRef.current;
+        if (container) {
+          // Finalize selection based on the marquee rectangle
+          const rect = container.getBoundingClientRect();
+          const { PITCH_LABEL_WIDTH, TIME_MARKER_HEIGHT, SCROLLBAR_WIDTH, SCROLLBAR_HEIGHT } = CANVAS_CONFIG;
+          const gridWidth = rect.width - PITCH_LABEL_WIDTH - SCROLLBAR_WIDTH;
+          const gridHeight = rect.height - TIME_MARKER_HEIGHT - SCROLLBAR_HEIGHT;
+          const visibleBeats = visibleRegion.endBeat - visibleRegion.startBeat;
+          const visibleSemitones = visibleRegion.endPitch - visibleRegion.startPitch;
+
+          // Convert marquee pixel coordinates to beat/pitch coordinates
+          // Clamp coordinates to grid boundaries
+          const clampedStartX = Math.max(PITCH_LABEL_WIDTH, Math.min(marqueeState.startX, rect.width - SCROLLBAR_WIDTH));
+          const clampedStartY = Math.max(TIME_MARKER_HEIGHT, Math.min(marqueeState.startY, rect.height - SCROLLBAR_HEIGHT));
+          const clampedCurrentX = Math.max(PITCH_LABEL_WIDTH, Math.min(marqueeState.currentX, rect.width - SCROLLBAR_WIDTH));
+          const clampedCurrentY = Math.max(TIME_MARKER_HEIGHT, Math.min(marqueeState.currentY, rect.height - SCROLLBAR_HEIGHT));
+
+          const gridStartX = clampedStartX - PITCH_LABEL_WIDTH;
+          const gridCurrentX = clampedCurrentX - PITCH_LABEL_WIDTH;
+          const gridStartY = clampedStartY - TIME_MARKER_HEIGHT;
+          const gridCurrentY = clampedCurrentY - TIME_MARKER_HEIGHT;
+
+          // Convert to beats
+          const startBeat = visibleRegion.startBeat + (Math.min(gridStartX, gridCurrentX) / gridWidth) * visibleBeats;
+          const endBeat = visibleRegion.startBeat + (Math.max(gridStartX, gridCurrentX) / gridWidth) * visibleBeats;
+
+          // Convert to pitch (Y is inverted - higher Y = lower pitch)
+          const topY = Math.min(gridStartY, gridCurrentY);
+          const bottomY = Math.max(gridStartY, gridCurrentY);
+          const startPitch = visibleRegion.endPitch - (bottomY / gridHeight) * visibleSemitones;
+          const endPitch = visibleRegion.endPitch - (topY / gridHeight) * visibleSemitones;
+
+          // Get intersecting notes
+          const intersectingIds = getNotesInRect(notes, {
+            startBeat,
+            endBeat,
+            startPitch,
+            endPitch,
+          }, visibleRegion);
+
+          // Finalize selection based on additive mode
+          // Property 6: Replace mode - selection equals intersecting notes
+          // Property 7: Additive mode - selection equals union of previous and intersecting
+          if (marqueeState.isAdditive) {
+            // Additive mode: union of previous selection and intersecting notes
+            if (onAddToSelection) {
+              const idsToAdd = intersectingIds.filter(id => !marqueeState.previousSelection.has(id));
+              if (idsToAdd.length > 0) {
+                onAddToSelection(idsToAdd);
+              }
+            }
+          } else {
+            // Replace mode: selection equals intersecting notes only
+            if (onDeselectAll) {
+              onDeselectAll();
+            }
+            if (intersectingIds.length > 0 && onAddToSelection) {
+              onAddToSelection(intersectingIds);
+            }
+          }
+        }
+
+        // Set flag to prevent the subsequent click event from triggering
+        // Only for actual drags, not simple clicks
+        justFinishedDragRef.current = true;
+        setTimeout(() => {
+          justFinishedDragRef.current = false;
+        }, 0);
+      }
+      // Clear marquee state regardless of drag distance
+      setMarqueeState(null);
+    }
+  }, [dragState, marqueeState, visibleRegion, notes, onAddToSelection, onDeselectAll]);
 
   /**
-   * Handles key down for canceling drag operation and deleting notes
+   * Handles key down for canceling drag/marquee operations and deleting notes
    * Requirements: 3.5 - Support drag cancel with state restoration
+   * Requirements: 2.5 - Support marquee cancel with selection restoration
    * Requirements: 6.1 - Handle Delete/Backspace key on selected notes
    *
    * Property 6: Drag Cancel Restores Original State
@@ -1371,13 +1786,54 @@ export function PianoRollCanvas({
    * Property 7: Note Deletion Removes from Melody
    * - For any Note in a Melody, when the Note is deleted (via Delete/Backspace key),
    *   the Note SHALL no longer exist in the Melody's notes array
+   *
+   * Property 8: Marquee Cancel Restores State
+   * - For any marquee selection that is cancelled, the selection SHALL be restored
+   *   to its exact state before the marquee began
    */
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Handle Escape key for canceling drag
     if (event.key === 'Escape' && dragState && onNoteUpdate) {
-      // Restore the note to its original state
-      onNoteUpdate(dragState.originalNote);
+      // Property 14: Group Drag Cancel Restores All Notes
+      // For group drag, restore ALL selected notes to their original positions
+      if (dragState.isGroupDrag && dragState.originalSelectedNotes.size > 0) {
+        if (onBulkNoteUpdate) {
+          // Use bulk update if available (more efficient)
+          const updates = new Map<string, Partial<Note>>();
+          for (const [noteId, originalNote] of dragState.originalSelectedNotes) {
+            updates.set(noteId, {
+              start: originalNote.start,
+              pitch: originalNote.pitch,
+            });
+          }
+          onBulkNoteUpdate(updates);
+        } else {
+          // Fall back to individual updates
+          for (const [, originalNote] of dragState.originalSelectedNotes) {
+            onNoteUpdate(originalNote);
+          }
+        }
+      } else {
+        // Single note drag: restore only the primary note to its original state
+        onNoteUpdate(dragState.originalNote);
+      }
       setDragState(null);
+      return;
+    }
+
+    // Handle Escape key for canceling marquee selection
+    // Property 8: Marquee Cancel Restores State
+    if (event.key === 'Escape' && marqueeState) {
+      // Restore the previous selection state
+      if (onDeselectAll) {
+        onDeselectAll();
+      }
+      // Re-add the previously selected notes
+      if (onAddToSelection && marqueeState.previousSelection.size > 0) {
+        onAddToSelection(Array.from(marqueeState.previousSelection));
+      }
+      // Clear marquee state
+      setMarqueeState(null);
       return;
     }
 
@@ -1392,10 +1848,16 @@ export function PianoRollCanvas({
         onNoteDelete(noteId);
       }
     }
-  }, [dragState, onNoteUpdate, onNoteDelete, selectedNoteIds]);
+  }, [dragState, marqueeState, onNoteUpdate, onBulkNoteUpdate, onNoteDelete, selectedNoteIds, onDeselectAll, onAddToSelection]);
 
   /**
-   * Handles click events on the canvas to create new notes or reposition the playhead
+   * Handles click events on the canvas for note selection, note creation, and playhead repositioning
+   *
+   * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 (Click selection with modifier keys)
+   * - Simple click on note: clear selection and select only clicked note
+   * - Simple click on empty: clear selection
+   * - Ctrl/Cmd + click on note: toggle note selection
+   * - Shift + click on note: select range from anchor to clicked note
    *
    * Requirements: 2.1, 2.2, 2.3 (Note creation)
    * - Creates a new Note at the clicked pitch and time position
@@ -1405,16 +1867,18 @@ export function PianoRollCanvas({
    * Requirement 8.5 (Timeline click)
    * - Clicking on the timeline area repositions the playhead to the clicked time position
    *
-   * Property 2: Note Creation at Valid Position
-   * - pitch = MIDI note corresponding to Y position
-   * - start = beat corresponding to X position (quantized if snap enabled)
-   * - duration = 1 beat (default)
-   * - velocity = 0.8 (default)
+   * Property 1: Simple Click Clears and Selects Single Note
+   * Property 2: Click on Empty Clears Selection
+   * Property 3: Ctrl/Cmd Click Toggles Selection
+   * Property 4: Shift-Click Range Selection
    *
    * Property 9: Timeline Click Positions Playhead
    * - For any click on the timeline area at time T, the playhead position SHALL be set to T
    */
   const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    // Only handle left mouse button (button 0)
+    if (event.button !== 0) return;
+
     // Don't handle click if currently dragging (drag end fires click)
     if (dragState) return;
 
@@ -1456,9 +1920,6 @@ export function PianoRollCanvas({
       return;
     }
 
-    // Don't create notes if no callback provided
-    if (!onNoteCreate) return;
-
     // Check if click is within the grid area (not on pitch labels, time markers, or scrollbars)
     if (clickX < PITCH_LABEL_WIDTH || clickY < TIME_MARKER_HEIGHT ||
         clickX > rect.width - SCROLLBAR_WIDTH || clickY > rect.height - SCROLLBAR_HEIGHT) {
@@ -1492,6 +1953,57 @@ export function PianoRollCanvas({
       return;
     }
 
+    // Find if there's a note at the clicked position
+    const clickedNote = findNoteAtPosition(rawBeat, pitch);
+
+    // Detect modifier keys for selection behavior
+    // Requirements: 1.3, 1.4, 1.5 - Modifier keys for selection
+    const isCtrlOrCmd = isPlatformModifierKey(event.nativeEvent);
+    const isShift = event.shiftKey;
+
+    // Handle click on a note (selection logic)
+    // Requirements: 1.1, 1.3, 1.4, 1.5, 1.6 - Click selection with modifier keys
+    if (clickedNote) {
+      if (isShift && selectionAnchor && onAddToSelection) {
+        // Shift + click: select range from anchor to clicked note (Property 4)
+        // Requirements: 1.5 - Shift-click range selection
+        const rangeNoteIds = getNoteRange(notes, selectionAnchor, clickedNote.id);
+        onAddToSelection(rangeNoteIds);
+        // Don't update anchor on Shift-click
+      } else if (isCtrlOrCmd && onToggleNoteSelection) {
+        // Ctrl/Cmd + click: toggle note selection (Property 3)
+        // Requirements: 1.3, 1.4 - Toggle selection with modifier key
+        onToggleNoteSelection(clickedNote.id);
+        // Update anchor on non-Shift clicks
+        if (onSetSelectionAnchor) {
+          onSetSelectionAnchor(clickedNote.id);
+        }
+      } else if (onNoteSelect) {
+        // Simple click: clear selection and select only clicked note (Property 1)
+        // Requirements: 1.1 - Click clears and selects single note
+        onNoteSelect(clickedNote.id);
+        // Update anchor on non-Shift clicks
+        if (onSetSelectionAnchor) {
+          onSetSelectionAnchor(clickedNote.id);
+        }
+      }
+      return;
+    }
+
+    // Click on empty area - clear selection (Property 2)
+    // Requirements: 1.2 - Click on empty clears selection
+    if (onDeselectAll) {
+      onDeselectAll();
+    }
+
+    // Clear anchor when clicking on empty area
+    if (onSetSelectionAnchor) {
+      onSetSelectionAnchor(null);
+    }
+
+    // Don't create notes if no callback provided
+    if (!onNoteCreate) return;
+
     // Snap beat position using grid snap configuration
     const snappedBeat = snapPosition(rawBeat, gridSnap);
 
@@ -1499,9 +2011,9 @@ export function PianoRollCanvas({
     const startBeat = Math.max(0, snappedBeat);
 
     // Check if there's already a note at this position (Requirement 2.5)
+    // This check uses snapped beat, different from the raw beat used for findNoteAtPosition
     if (isClickOnExistingNote(startBeat, pitch)) {
-      // Don't create a new note, the existing note should be selected instead
-      // Selection is handled by a different mechanism (future task)
+      // Don't create a new note, there's already one here
       return;
     }
 
@@ -1517,7 +2029,22 @@ export function PianoRollCanvas({
 
     // Call the callback to create the note
     onNoteCreate(newNote);
-  }, [onNoteCreate, onPlayheadChange, visibleRegion, gridSnap, isClickOnExistingNote, dragState]);
+  }, [
+    onNoteCreate,
+    onPlayheadChange,
+    onNoteSelect,
+    onToggleNoteSelection,
+    onAddToSelection,
+    onDeselectAll,
+    onSetSelectionAnchor,
+    selectionAnchor,
+    notes,
+    visibleRegion,
+    gridSnap,
+    isClickOnExistingNote,
+    findNoteAtPosition,
+    dragState,
+  ]);
 
   /**
    * Sets up the canvas with proper device pixel ratio handling
@@ -2097,6 +2624,50 @@ export function PianoRollCanvas({
   }, [visibleRegion, effectiveTotalBeats]);
 
   /**
+   * Renders the marquee selection rectangle during drag
+   * Requirements: 2.1, 2.6 - Display selection rectangle with semi-transparent fill and visible border
+   *
+   * @param ctx Canvas 2D rendering context
+   * @param displayWidth Width of the canvas in CSS pixels
+   * @param displayHeight Height of the canvas in CSS pixels
+   */
+  const renderMarquee = useCallback((
+    ctx: CanvasRenderingContext2D,
+    displayWidth: number,
+    displayHeight: number
+  ) => {
+    if (!marqueeState) return;
+
+    const { PITCH_LABEL_WIDTH, TIME_MARKER_HEIGHT, SCROLLBAR_WIDTH, SCROLLBAR_HEIGHT } = CANVAS_CONFIG;
+
+    // Calculate the rectangle coordinates
+    // Clamp coordinates to grid boundaries
+    const minX = Math.max(PITCH_LABEL_WIDTH, Math.min(marqueeState.startX, marqueeState.currentX));
+    const maxX = Math.min(displayWidth - SCROLLBAR_WIDTH, Math.max(marqueeState.startX, marqueeState.currentX));
+    const minY = Math.max(TIME_MARKER_HEIGHT, Math.min(marqueeState.startY, marqueeState.currentY));
+    const maxY = Math.min(displayHeight - SCROLLBAR_HEIGHT, Math.max(marqueeState.startY, marqueeState.currentY));
+
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    // Don't render if the rectangle is too small
+    if (width < 1 || height < 1) return;
+
+    // Draw semi-transparent fill
+    // Requirements: 2.6 - Semi-transparent fill to distinguish from notes
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.2)'; // Light indigo with transparency
+    ctx.fillRect(minX, minY, width, height);
+
+    // Draw visible border
+    // Requirements: 2.6 - Visible border to distinguish from notes
+    ctx.strokeStyle = '#6366f1'; // Indigo border color
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 2]); // Dashed line for visual distinction
+    ctx.strokeRect(minX + 0.5, minY + 0.5, width - 1, height - 1);
+    ctx.setLineDash([]); // Reset line dash
+  }, [marqueeState]);
+
+  /**
    * Main render function that draws all canvas elements
    * Uses requestAnimationFrame for smooth 60fps updates
    */
@@ -2112,6 +2683,7 @@ export function PianoRollCanvas({
     // Render layers in order (back to front)
     renderGrid(ctx, displayWidth, displayHeight);
     renderNotes(ctx, displayWidth, displayHeight);
+    renderMarquee(ctx, displayWidth, displayHeight);
     renderPlayhead(ctx, displayWidth, displayHeight);
     renderPitchLabels(ctx, displayHeight);
     renderTimeMarkers(ctx, displayWidth);
@@ -2120,7 +2692,7 @@ export function PianoRollCanvas({
     // Draw corner box where pitch labels and time markers meet
     ctx.fillStyle = CANVAS_CONFIG.GRID_BACKGROUND;
     ctx.fillRect(0, 0, CANVAS_CONFIG.PITCH_LABEL_WIDTH, CANVAS_CONFIG.TIME_MARKER_HEIGHT);
-  }, [setupCanvas, renderGrid, renderNotes, renderPlayhead, renderPitchLabels, renderTimeMarkers, renderScrollbars]);
+  }, [setupCanvas, renderGrid, renderNotes, renderMarquee, renderPlayhead, renderPitchLabels, renderTimeMarkers, renderScrollbars]);
 
   /**
    * Effect to handle canvas rendering and resize
@@ -2212,15 +2784,16 @@ export function PianoRollCanvas({
   }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   /**
-   * Re-render when visible region, notes, playhead position, or active pitches change
+   * Re-render when visible region, notes, playhead position, active pitches, or marquee change
    * Requirement 40.5: Update visual feedback when keyboard piano keys are pressed/released
+   * Requirement 2.1: Update marquee rectangle display during drag
    */
   useEffect(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [visibleRegion, notes, selectedNoteIds, playheadPosition, activePitches, playingPitches, render]);
+  }, [visibleRegion, notes, selectedNoteIds, playheadPosition, activePitches, playingPitches, marqueeState, render]);
 
   /**
    * Effect to handle drag events for horizontal note movement
@@ -2266,6 +2839,30 @@ export function PianoRollCanvas({
   }, [scrollbarDragState, handleScrollbarDrag, handleScrollbarDragEnd]);
 
   /**
+   * Effect to handle marquee selection events
+   * Attaches global mouse move/up/keydown listeners while marquee is active
+   * Requirements: 2.1, 2.3, 2.4, 2.5
+   * - Updates marquee rectangle during drag
+   * - Calculates intersecting notes for preview
+   * - Finalizes selection on mouse up
+   * - Cancels and restores selection on Escape key
+   */
+  useEffect(() => {
+    if (!marqueeState) return;
+
+    // Add global listeners for mouse move/up/keydown to handle marquee operations
+    window.addEventListener('mousemove', handleMarqueeMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMarqueeMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [marqueeState, handleMarqueeMove, handleMouseUp, handleKeyDown]);
+
+  /**
    * Effect to handle Delete/Backspace key for note deletion when canvas is focused
    * Requirements: 6.1 - Handle Delete/Backspace key on selected notes
    *
@@ -2305,15 +2902,17 @@ export function PianoRollCanvas({
         style={{
           cursor: dragState
             ? (dragState.mode === 'resize' ? 'ew-resize' : 'move')
-            : scrollbarDragState
-              ? 'grabbing'
-              : isOverScrollbar
-                ? 'grab'
-                : isOverTimeline
-                  ? 'pointer'
-                  : isOverResizeHandle
-                    ? 'ew-resize'
-                    : 'default'
+            : marqueeState
+              ? 'crosshair'
+              : scrollbarDragState
+                ? 'grabbing'
+                : isOverScrollbar
+                  ? 'grab'
+                  : isOverTimeline
+                    ? 'pointer'
+                    : isOverResizeHandle
+                      ? 'ew-resize'
+                      : 'default'
         }}
       />
     </div>

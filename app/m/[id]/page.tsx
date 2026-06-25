@@ -24,7 +24,7 @@ import {
   useOwnership,
   useKeyboardPiano,
 } from '@/hooks';
-import type { SynthesizerConfig, GridSnapConfig } from '@/types';
+import type { SynthesizerConfig, GridSnapConfig, Note } from '@/types';
 
 /**
  * MelodyPage component - Refactored to use custom hooks
@@ -45,7 +45,24 @@ export default function MelodyPage() {
   // ===== Custom Hooks =====
   // usePianoRoll - manages notes, selection (read-only mode uses loadNotes)
   const pianoRoll = usePianoRoll();
-  const { notes, selectedNoteId, gridSnap, setGridSnap, updateNote, deleteNote, selectNote, loadNotes, clearNotes } = pianoRoll;
+  const {
+    notes,
+    selectedNoteIds,
+    selectionAnchor,
+    gridSnap,
+    setGridSnap,
+    updateNote,
+    deleteNote,
+    selectNote,
+    toggleNoteSelection,
+    addToSelection,
+    deselectAll,
+    selectAll,
+    setSelectionAnchor,
+    bulkUpdateNotes,
+    loadNotes,
+    clearNotes,
+  } = pianoRoll;
 
   // useSynthesizer - manages synth config with effects and presets
   const synthEngineRef = useRef<SynthesizerEngine | null>(null);
@@ -105,9 +122,6 @@ export default function MelodyPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isPianoRollFullscreen, setIsPianoRollFullscreen] = useState(false);
-
-  // Convert selectedNoteId to Set for PianoRollCanvas
-  const selectedNoteIds = selectedNoteId ? new Set([selectedNoteId]) : new Set<string>();
 
   // Handle Escape key to exit fullscreen
   useEffect(() => {
@@ -247,6 +261,55 @@ export default function MelodyPage() {
   const handleNoteSelect = useCallback((noteId: string | null) => {
     selectNote(noteId);
   }, [selectNote]);
+
+  /**
+   * Handle toggle note selection (Ctrl/Cmd + click)
+   */
+  const handleToggleNoteSelection = useCallback((noteId: string) => {
+    toggleNoteSelection(noteId);
+  }, [toggleNoteSelection]);
+
+  /**
+   * Handle add notes to selection (for marquee and range selection)
+   */
+  const handleAddToSelection = useCallback((noteIds: string[]) => {
+    addToSelection(noteIds);
+  }, [addToSelection]);
+
+  /**
+   * Handle deselect all notes
+   */
+  const handleDeselectAll = useCallback(() => {
+    deselectAll();
+  }, [deselectAll]);
+
+  /**
+   * Handle set selection anchor (for Shift-click range selection)
+   */
+  const handleSetSelectionAnchor = useCallback((noteId: string | null) => {
+    setSelectionAnchor(noteId);
+  }, [setSelectionAnchor]);
+
+  /**
+   * Handle bulk note update (for group movement)
+   */
+  const handleBulkNoteUpdate = useCallback((updates: Map<string, Partial<Note>>) => {
+    bulkUpdateNotes(updates);
+    setSaveSuccess(false);
+  }, [bulkUpdateNotes]);
+
+  /**
+   * Handle toggle playback (Space bar shortcut)
+   */
+  const handleTogglePlayback = useCallback(() => {
+    if (isPlaying && !isPaused) {
+      pause();
+    } else if (isPaused) {
+      play();
+    } else {
+      play();
+    }
+  }, [isPlaying, isPaused, play, pause]);
 
   /**
    * Handle playhead position change from PianoRollCanvas
@@ -549,6 +612,7 @@ export default function MelodyPage() {
                 <PianoRollCanvas
                   notes={notes}
                   selectedNoteIds={selectedNoteIds}
+                  selectionAnchor={selectionAnchor}
                   playheadPosition={playheadPosition}
                   gridSnap={gridSnap}
                   isPlaying={isPlaying && !isPaused}
@@ -558,7 +622,14 @@ export default function MelodyPage() {
                   onNoteUpdate={handleNoteUpdate}
                   onNoteDelete={handleNoteDelete}
                   onNoteSelect={handleNoteSelect}
+                  onToggleNoteSelection={handleToggleNoteSelection}
+                  onAddToSelection={handleAddToSelection}
+                  onDeselectAll={handleDeselectAll}
+                  onSetSelectionAnchor={handleSetSelectionAnchor}
+                  onBulkNoteUpdate={handleBulkNoteUpdate}
                   onPlayheadChange={handlePlayheadChange}
+                  onTogglePlayback={handleTogglePlayback}
+                  onSelectAll={selectAll}
                   className="w-full h-full"
                 />
               </ErrorBoundary>

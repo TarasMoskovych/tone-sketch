@@ -44,15 +44,22 @@ export default function CreatePage() {
 
   const {
     notes,
-    selectedNoteId,
+    selectedNoteIds,
+    selectionAnchor,
     gridSnap,
     createNote,
     updateNote,
     deleteNote,
     selectNote,
+    toggleNoteSelection,
+    addToSelection,
+    deselectAll,
+    selectAll,
+    setSelectionAnchor,
     setGridSnap,
     loadNotes,
     clearNotes,
+    bulkUpdateNotes,
   } = usePianoRoll();
 
   const { config: synthConfig, updateConfig: updateSynthConfig, applyPreset } = useSynthesizer({
@@ -118,8 +125,6 @@ export default function CreatePage() {
   // Piano roll fullscreen state
   const [isPianoRollFullscreen, setIsPianoRollFullscreen] = useState(false);
 
-  const selectedNoteIds = selectedNoteId ? new Set([selectedNoteId]) : new Set<string>();
-
   // ===== Effects =====
 
   useEffect(() => {
@@ -175,6 +180,26 @@ export default function CreatePage() {
   const handleNoteSelect = useCallback((noteId: string | null) => {
     selectNote(noteId);
   }, [selectNote]);
+
+  const handleToggleNoteSelection = useCallback((noteId: string) => {
+    toggleNoteSelection(noteId);
+  }, [toggleNoteSelection]);
+
+  const handleAddToSelection = useCallback((noteIds: string[]) => {
+    addToSelection(noteIds);
+  }, [addToSelection]);
+
+  const handleDeselectAll = useCallback(() => {
+    deselectAll();
+  }, [deselectAll]);
+
+  const handleSetSelectionAnchor = useCallback((noteId: string | null) => {
+    setSelectionAnchor(noteId);
+  }, [setSelectionAnchor]);
+
+  const handleBulkNoteUpdate = useCallback((updates: Map<string, Partial<Note>>) => {
+    bulkUpdateNotes(updates);
+  }, [bulkUpdateNotes]);
 
   const handlePlayheadChange = useCallback((position: number) => {
     setPlayheadPosition(position);
@@ -262,6 +287,7 @@ export default function CreatePage() {
       <PianoRollCanvas
         notes={notes}
         selectedNoteIds={selectedNoteIds}
+        selectionAnchor={selectionAnchor}
         playheadPosition={playheadPosition}
         gridSnap={gridSnap}
         isPlaying={isPlaying && !isPaused}
@@ -269,8 +295,14 @@ export default function CreatePage() {
         onNoteUpdate={handleNoteUpdate}
         onNoteDelete={handleNoteDelete}
         onNoteSelect={handleNoteSelect}
+        onToggleNoteSelection={handleToggleNoteSelection}
+        onAddToSelection={handleAddToSelection}
+        onDeselectAll={handleDeselectAll}
+        onSetSelectionAnchor={handleSetSelectionAnchor}
+        onBulkNoteUpdate={handleBulkNoteUpdate}
         onPlayheadChange={handlePlayheadChange}
         onTogglePlayback={handleTogglePlayback}
+        onSelectAll={selectAll}
         highlightedPitch={highlightedPitch}
         activePitches={activePitches}
         className="w-full h-full"

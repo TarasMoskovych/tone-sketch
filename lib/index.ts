@@ -58,3 +58,6 @@ export {
   BLACK_KEY_INDICES,
   NOTE_CONSTRAINTS,
 } from './note-utils';
+
+// Selection utility functions
+export { isPlatformModifierKey } from './selection-utils';

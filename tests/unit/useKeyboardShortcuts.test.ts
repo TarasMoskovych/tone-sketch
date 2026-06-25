@@ -7,14 +7,16 @@ import { renderHook } from '@testing-library/react';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 
 describe('useKeyboardShortcuts', () => {
-  let mockOnTogglePlayback: ReturnType<typeof vi.fn>;
-  let mockOnDeleteNote: ReturnType<typeof vi.fn>;
+  let mockOnTogglePlayback: () => void;
+  let mockOnDeleteNote: () => void;
+  let mockOnSelectAll: () => void;
   let mockContainer: HTMLDivElement;
   let containerRef: { current: HTMLElement | null };
 
   beforeEach(() => {
     mockOnTogglePlayback = vi.fn();
     mockOnDeleteNote = vi.fn();
+    mockOnSelectAll = vi.fn();
 
     // Create a mock container element
     mockContainer = document.createElement('div');
@@ -352,16 +354,124 @@ describe('useKeyboardShortcuts', () => {
           enabled: true,
           onTogglePlayback: mockOnTogglePlayback,
           onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
           containerRef,
         })
       );
 
+      // Note: KeyA without modifier should not trigger anything
       dispatchKeyEvent('KeyA');
       dispatchKeyEvent('Enter');
       dispatchKeyEvent('Escape');
 
       expect(mockOnTogglePlayback).not.toHaveBeenCalled();
       expect(mockOnDeleteNote).not.toHaveBeenCalled();
+      expect(mockOnSelectAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Select All (Ctrl+A / Cmd+A)', () => {
+    /**
+     * Requirement 6.1, 6.2, 6.3: Select All selects all notes
+     */
+    it('should call onSelectAll when Ctrl+A is pressed', () => {
+      mockContainer.focus();
+
+      renderHook(() =>
+        useKeyboardShortcuts({
+          enabled: true,
+          onTogglePlayback: mockOnTogglePlayback,
+          onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
+          containerRef,
+        })
+      );
+
+      dispatchKeyEvent('KeyA', { ctrlKey: true });
+
+      expect(mockOnSelectAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onSelectAll when Cmd+A is pressed (macOS)', () => {
+      mockContainer.focus();
+
+      renderHook(() =>
+        useKeyboardShortcuts({
+          enabled: true,
+          onTogglePlayback: mockOnTogglePlayback,
+          onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
+          containerRef,
+        })
+      );
+
+      dispatchKeyEvent('KeyA', { metaKey: true });
+
+      expect(mockOnSelectAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('should prevent default browser behavior on Ctrl+A', () => {
+      mockContainer.focus();
+
+      renderHook(() =>
+        useKeyboardShortcuts({
+          enabled: true,
+          onTogglePlayback: mockOnTogglePlayback,
+          onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
+          containerRef,
+        })
+      );
+
+      const event = dispatchKeyEvent('KeyA', { ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('should not call onSelectAll when only A is pressed without modifier', () => {
+      mockContainer.focus();
+
+      renderHook(() =>
+        useKeyboardShortcuts({
+          enabled: true,
+          onTogglePlayback: mockOnTogglePlayback,
+          onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
+          containerRef,
+        })
+      );
+
+      dispatchKeyEvent('KeyA');
+
+      expect(mockOnSelectAll).not.toHaveBeenCalled();
+    });
+
+    it('should not call onSelectAll when in text input', () => {
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      mockContainer.appendChild(textInput);
+      textInput.focus();
+
+      renderHook(() =>
+        useKeyboardShortcuts({
+          enabled: true,
+          onTogglePlayback: mockOnTogglePlayback,
+          onDeleteNote: mockOnDeleteNote,
+          onSelectAll: mockOnSelectAll,
+          containerRef,
+        })
+      );
+
+      const event = new KeyboardEvent('keydown', {
+        code: 'KeyA',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(event, 'target', { value: textInput, writable: false });
+      document.dispatchEvent(event);
+
+      expect(mockOnSelectAll).not.toHaveBeenCalled();
     });
   });
 

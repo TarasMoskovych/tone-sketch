@@ -12,8 +12,12 @@ import type { GridSnapConfig, VisibleRegion, GridDivision } from '../types/grid'
 export interface UsePianoRollReturn {
   /** Array of notes in the piano roll */
   notes: Note[];
-  /** ID of the currently selected note, or null if none selected */
+  /** ID of the currently selected note, or null if none selected (backward compatibility) */
   selectedNoteId: string | null;
+  /** Set of currently selected note IDs */
+  selectedNoteIds: Set<string>;
+  /** The last note that was clicked (not Shift-clicked), used as anchor for range selection */
+  selectionAnchor: string | null;
   /** Current visible region of the piano roll */
   visibleRegion: VisibleRegion;
   /** Grid snap configuration */
@@ -28,12 +32,28 @@ export interface UsePianoRollReturn {
   setVisibleRegion: (region: VisibleRegion) => void;
   /** Set the grid snap configuration */
   setGridSnap: (config: GridSnapConfig) => void;
-  /** Select a note by ID, or deselect if null */
+  /** Select a single note (clears previous selection) - backward compatible */
   selectNote: (noteId: string | null) => void;
+  /** Select multiple notes at once (replaces selection) */
+  selectNotes: (noteIds: string[]) => void;
+  /** Add notes to current selection */
+  addToSelection: (noteIds: string[]) => void;
+  /** Remove a note from selection */
+  deselectNote: (noteId: string) => void;
+  /** Toggle a note's selection state */
+  toggleNoteSelection: (noteId: string) => void;
+  /** Clear all selections */
+  deselectAll: () => void;
+  /** Select all notes in the melody */
+  selectAll: () => void;
   /** Clear all notes from the piano roll */
   clearNotes: () => void;
   /** Load an array of notes (replaces existing notes) */
   loadNotes: (notes: Note[]) => void;
+  /** Set the selection anchor for Shift-click range selection */
+  setSelectionAnchor: (noteId: string | null) => void;
+  /** Bulk update multiple notes at once (for group movement) */
+  bulkUpdateNotes: (updates: Map<string, Partial<Note>>) => void;
 }
 
 // Default values as specified in the design document
@@ -141,14 +161,21 @@ export function usePianoRoll(): UsePianoRollReturn {
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
 
-  // Selection state
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  // Selection state - using Set<string> for multi-note selection (Requirement 7.1)
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+
+  // Selection anchor state - tracks last non-Shift clicked note for range selection (Requirements 1.5, 1.6)
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
 
   // Visible region state
   const [visibleRegion, setVisibleRegionState] = useState<VisibleRegion>(DEFAULT_VISIBLE_REGION);
 
   // Grid snap configuration state
   const [gridSnap, setGridSnapState] = useState<GridSnapConfig>(DEFAULT_GRID_SNAP);
+
+  // Backward compatibility: derive selectedNoteId from selectedNoteIds
+  // Returns the first selected note ID or null if none selected
+  const selectedNoteId = selectedNoteIds.size > 0 ? Array.from(selectedNoteIds)[0] : null;
 
   /**
    * Creates a new note at the specified pitch and start time.
@@ -173,8 +200,8 @@ export function usePianoRoll(): UsePianoRollReturn {
       };
 
       setNotes((prevNotes) => [...prevNotes, newNote]);
-      // Select the newly created note
-      setSelectedNoteId(newNote.id);
+      // Select the newly created note (clears previous selection)
+      setSelectedNoteIds(new Set([newNote.id]));
     },
     [gridSnap]
   );
@@ -220,19 +247,22 @@ export function usePianoRoll(): UsePianoRollReturn {
 
   /**
    * Deletes a note by ID.
-   * If the deleted note was selected, clears the selection.
+   * Removes the deleted note's ID from the selection if present.
+   * Validates: Property 19 - Note Deletion Cleans Selection (Requirement 7.2)
    */
-  const deleteNote = useCallback(
-    (noteId: string) => {
-      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteId));
+  const deleteNote = useCallback((noteId: string) => {
+    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteId));
 
-      // Clear selection if the deleted note was selected
-      if (selectedNoteId === noteId) {
-        setSelectedNoteId(null);
+    // Remove deleted note from selection if present (Property 19)
+    setSelectedNoteIds((prevSelected) => {
+      if (prevSelected.has(noteId)) {
+        const newSelected = new Set(prevSelected);
+        newSelected.delete(noteId);
+        return newSelected;
       }
-    },
-    [selectedNoteId]
-  );
+      return prevSelected;
+    });
+  }, []);
 
   /**
    * Sets the visible region of the piano roll.
@@ -254,33 +284,161 @@ export function usePianoRoll(): UsePianoRollReturn {
   }, []);
 
   /**
-   * Selects a note by ID, or deselects if null is passed.
+   * Selects a single note (clears previous selection) - backward compatible.
+   * If null is passed, clears the selection entirely.
+   * Validates: Requirement 1.1 - Click clears and selects single note
    */
   const selectNote = useCallback((noteId: string | null) => {
-    setSelectedNoteId(noteId);
+    if (noteId === null) {
+      setSelectedNoteIds(new Set());
+    } else {
+      setSelectedNoteIds(new Set([noteId]));
+    }
+  }, []);
+
+  /**
+   * Select multiple notes at once (replaces current selection).
+   * Validates: Requirement 7.4
+   */
+  const selectNotes = useCallback((noteIds: string[]) => {
+    setSelectedNoteIds(new Set(noteIds));
+  }, []);
+
+  /**
+   * Add notes to current selection.
+   * Validates: Requirement 7.4
+   */
+  const addToSelection = useCallback((noteIds: string[]) => {
+    setSelectedNoteIds((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      noteIds.forEach((id) => newSelected.add(id));
+      return newSelected;
+    });
+  }, []);
+
+  /**
+   * Remove a note from selection.
+   * Validates: Requirement 7.4
+   */
+  const deselectNote = useCallback((noteId: string) => {
+    setSelectedNoteIds((prevSelected) => {
+      if (prevSelected.has(noteId)) {
+        const newSelected = new Set(prevSelected);
+        newSelected.delete(noteId);
+        return newSelected;
+      }
+      return prevSelected;
+    });
+  }, []);
+
+  /**
+   * Toggle a note's selection state.
+   * If the note is selected, it will be deselected. If unselected, it will be added to selection.
+   * Validates: Requirement 1.3, 1.4 - Ctrl/Cmd click toggles selection
+   */
+  const toggleNoteSelection = useCallback((noteId: string) => {
+    setSelectedNoteIds((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(noteId)) {
+        newSelected.delete(noteId);
+      } else {
+        newSelected.add(noteId);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  /**
+   * Clear all selections.
+   * Validates: Requirement 1.2 - Click on empty clears selection
+   */
+  const deselectAll = useCallback(() => {
+    setSelectedNoteIds(new Set());
+  }, []);
+
+  /**
+   * Select all notes in the melody.
+   * Validates: Requirement 6.1, 6.2 - Select All (Ctrl+A/Cmd+A)
+   */
+  const selectAll = useCallback(() => {
+    setSelectedNoteIds((prevSelected) => {
+      // Use notes from the current state via setNotes to avoid stale closure
+      // This is a workaround - we need to access current notes
+      return prevSelected;
+    });
+    // We need to access notes directly, so we'll use a different approach
+    setNotes((currentNotes) => {
+      setSelectedNoteIds(new Set(currentNotes.map((note) => note.id)));
+      return currentNotes;
+    });
   }, []);
 
   /**
    * Clears all notes from the piano roll.
    * Also clears any selection.
+   * Validates: Property 20 - Bulk Operations Clear Selection (Requirement 7.3)
    */
   const clearNotes = useCallback(() => {
     setNotes([]);
-    setSelectedNoteId(null);
+    setSelectedNoteIds(new Set());
   }, []);
 
   /**
    * Loads an array of notes, replacing any existing notes.
    * Also clears any selection.
+   * Validates: Property 20 - Bulk Operations Clear Selection (Requirement 7.3)
    */
   const loadNotes = useCallback((newNotes: Note[]) => {
     setNotes(newNotes);
-    setSelectedNoteId(null);
+    setSelectedNoteIds(new Set());
+  }, []);
+
+  /**
+   * Bulk update multiple notes at once (for group movement).
+   * More efficient than calling updateNote multiple times.
+   * Validates: Requirements 4.1, 4.2, 4.3 - Group movement
+   */
+  const bulkUpdateNotes = useCallback((updates: Map<string, Partial<Note>>) => {
+    setNotes((prevNotes) =>
+      prevNotes.map((note) => {
+        const update = updates.get(note.id);
+        if (!update) {
+          return note;
+        }
+
+        // Apply updates with validation
+        const updatedNote = { ...note };
+
+        if (update.pitch !== undefined) {
+          // Clamp pitch to valid MIDI range (0-127)
+          updatedNote.pitch = Math.max(0, Math.min(127, Math.round(update.pitch)));
+        }
+
+        if (update.start !== undefined) {
+          // Ensure non-negative start time, clamp to max 10000
+          updatedNote.start = Math.max(0, Math.min(10000, update.start));
+        }
+
+        if (update.duration !== undefined) {
+          // Ensure duration is within valid range (0.001-1000)
+          updatedNote.duration = Math.max(0.001, Math.min(1000, update.duration));
+        }
+
+        if (update.velocity !== undefined) {
+          // Clamp velocity to valid range (0-1)
+          updatedNote.velocity = Math.max(0, Math.min(1, update.velocity));
+        }
+
+        return updatedNote;
+      })
+    );
   }, []);
 
   return {
     notes,
     selectedNoteId,
+    selectedNoteIds,
+    selectionAnchor,
     visibleRegion,
     gridSnap,
     createNote,
@@ -289,7 +447,15 @@ export function usePianoRoll(): UsePianoRollReturn {
     setVisibleRegion,
     setGridSnap,
     selectNote,
+    selectNotes,
+    addToSelection,
+    deselectNote,
+    toggleNoteSelection,
+    deselectAll,
+    selectAll,
     clearNotes,
     loadNotes,
+    setSelectionAnchor,
+    bulkUpdateNotes,
   };
 }

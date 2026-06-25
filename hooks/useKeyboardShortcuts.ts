@@ -14,6 +14,8 @@ export interface UseKeyboardShortcutsProps {
   onTogglePlayback: () => void;
   /** Callback to delete the currently selected note */
   onDeleteNote: () => void;
+  /** Callback to select all notes (Ctrl+A/Cmd+A) */
+  onSelectAll?: () => void;
   /** Reference to the container element that should have focus for shortcuts to work */
   containerRef: RefObject<HTMLElement | null>;
 }
@@ -101,6 +103,7 @@ export function useKeyboardShortcuts({
   enabled,
   onTogglePlayback,
   onDeleteNote,
+  onSelectAll,
   containerRef,
 }: UseKeyboardShortcutsProps): void {
   /**
@@ -138,11 +141,21 @@ export function useKeyboardShortcuts({
         onDeleteNote();
         break;
 
+      case 'KeyA':
+        // Select All (Ctrl+A on Windows/Linux, Cmd+A on macOS)
+        // Requirements 6.1, 6.2, 6.3
+        if ((event.ctrlKey || event.metaKey) && onSelectAll) {
+          // Prevent default browser text selection behavior
+          event.preventDefault();
+          onSelectAll();
+        }
+        break;
+
       default:
         // No action for other keys
         break;
     }
-  }, [enabled, onTogglePlayback, onDeleteNote, containerRef]);
+  }, [enabled, onTogglePlayback, onDeleteNote, onSelectAll, containerRef]);
 
   /**
    * Set up and clean up keyboard event listeners

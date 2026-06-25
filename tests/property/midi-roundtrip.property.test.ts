@@ -91,11 +91,15 @@ describe('Property 10: MIDI Import/Export Round-Trip', () => {
    * Helper to ensure notes don't have overlapping pitch+start combinations.
    * MIDI can have multiple notes at same time but it's unusual and makes
    * round-trip matching ambiguous.
+   *
+   * Deduplication uses 0.1 beat tolerance (same as assertion matching tolerance)
+   * to prevent notes at nearly the same time from creating ambiguous matches.
    */
   function deduplicateNotes(notes: Note[]): Note[] {
     const seen = new Map<string, Note>();
     for (const note of notes) {
-      const key = `${Math.round(note.pitch)}_${Math.round(note.start * 1000) / 1000}`;
+      // Use 0.1 beat precision (round to 1 decimal place) to match assertion tolerance
+      const key = `${Math.round(note.pitch)}_${Math.round(note.start * 10) / 10}`;
       if (!seen.has(key)) {
         seen.set(key, note);
       }
