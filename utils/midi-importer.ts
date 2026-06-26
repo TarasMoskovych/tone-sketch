@@ -73,7 +73,7 @@ export function extractTempo(midi: Midi): number {
  * @param midiNote - Note from @tonejs/midi
  * @returns Note in application format
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 function _convertMidiNote(midiNote: {
   midi: number;
   time: number;
@@ -137,7 +137,7 @@ export async function parseMidiFile(file: File): Promise<MidiImportResult> {
 
   // Get PPQ (pulses per quarter note) for accurate beat conversion
   // Note: Using tempo-based conversion instead for simplicity
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const _ppq = midi.header.ppq;
 
   // Merge all tracks into a single notes array

@@ -733,7 +733,7 @@ describe('GridSnapControls', () => {
   describe('State changes callback', () => {
     it('should preserve enabled state when changing division', () => {
       const onChange = vi.fn();
-      const props = createGridSnapProps({
+      createGridSnapProps({
         config: { enabled: true, division: 0.25 },
         onChange,
       });
@@ -748,7 +748,7 @@ describe('GridSnapControls', () => {
 
     it('should preserve division when toggling enabled', () => {
       const onChange = vi.fn();
-      const props = createGridSnapProps({
+      createGridSnapProps({
         config: { enabled: true, division: 0.125 },
         onChange,
       });

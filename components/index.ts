@@ -1,6 +1,9 @@
 export { PianoRollCanvas, CANVAS_CONFIG } from './PianoRoll';
 export type { PianoRollCanvasProps, SelectionModifiers } from './PianoRoll';
 
+export { VelocityLaneCanvas, VELOCITY_LANE_CONFIG } from './VelocityLane';
+export type { VelocityLaneCanvasProps, VelocityDragState, VelocityRenderDimensions } from './VelocityLane';
+
 export { TransportControls } from './TransportControls';
 export type { TransportControlsProps } from './TransportControls';
 

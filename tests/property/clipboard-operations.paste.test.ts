@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { pasteNotesAtPosition } from '../hooks/clipboard-operations';
-import type { ClipboardNote } from '../hooks/clipboard-operations';
-import type { GridSnapConfig, GridDivision } from '../types/grid';
-import { snapPosition, getMinimumDuration } from '../hooks/usePianoRoll';
+import { pasteNotesAtPosition } from '@/hooks/clipboard-operations';
+import type { ClipboardNote } from '@/hooks/clipboard-operations';
+import type { GridSnapConfig, GridDivision } from '@/types/grid';
+import { snapPosition, getMinimumDuration } from '@/hooks/usePianoRoll';
 
 // --- Custom Arbitraries ---
 

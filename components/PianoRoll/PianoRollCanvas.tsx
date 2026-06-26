@@ -57,7 +57,7 @@ export function PianoRollCanvas({
   onCut,
   onPaste,
   onDuplicate,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   highlightedPitch: _highlightedPitch = undefined,
   activePitches = new Set(),
   autoScrollDuringPlayback = true,

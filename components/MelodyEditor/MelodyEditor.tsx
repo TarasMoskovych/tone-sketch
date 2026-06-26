@@ -21,7 +21,10 @@ import {
   ErrorBoundary,
   FullscreenToggle,
 } from '@/components';
+import { VelocityLaneCanvas } from '@/components/VelocityLane';
+import { DEFAULT_VISIBLE_REGION } from '@/components/PianoRoll/constants';
 import type { Note, SynthesizerConfig, GridSnapConfig } from '@/types';
+import type { VisibleRegion } from '@/types/grid';
 import type { MelodyEditorProps, EditorState, LoadNotesFn } from './types';
 
 /**
@@ -394,6 +397,19 @@ export function MelodyEditor({
   // ===== Fullscreen State =====
   const [isPianoRollFullscreen, setIsPianoRollFullscreen] = useState(false);
 
+  // ===== Velocity Lane Visibility State =====
+  // Requirement 1.3: Default visibility is hidden (false)
+  const [velocityLaneVisible, setVelocityLaneVisible] = useState(false);
+
+  // ===== Shared Visible Region State =====
+  // Requirements 3.1, 3.2, 3.3: Both PianoRollCanvas and VelocityLaneCanvas share visible region
+  const [visibleRegion, setVisibleRegion] = useState<VisibleRegion>(DEFAULT_VISIBLE_REGION);
+
+  /** Handle visible region changes from either PianoRollCanvas or VelocityLaneCanvas */
+  const handleVisibleRegionChange = useCallback((region: VisibleRegion) => {
+    setVisibleRegion(region);
+  }, []);
+
   // Handle Escape key to exit fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -452,47 +468,90 @@ export function MelodyEditor({
               </>
             )}
             <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => {
+                const newVisible = !velocityLaneVisible;
+                setVelocityLaneVisible(newVisible);
+                if (newVisible && isPianoRollFullscreen) {
+                  setIsPianoRollFullscreen(false);
+                }
+              }}
+              className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                velocityLaneVisible
+                  ? 'text-white bg-indigo-600 border-indigo-400 hover:bg-indigo-500'
+                  : 'text-gray-300 border-gray-600 hover:text-white hover:bg-gray-700 hover:border-gray-500'
+              }`}
+              title={velocityLaneVisible ? 'Hide velocity lane' : 'Show velocity lane'}
+              aria-pressed={velocityLaneVisible}
+            >
+              Velocity
+            </button>
             <FullscreenToggle
               isFullscreen={isPianoRollFullscreen}
               onToggle={() => setIsPianoRollFullscreen(!isPianoRollFullscreen)}
             />
           </div>
 
-          {/* Piano Roll Canvas */}
-          <div className="flex-1 overflow-hidden">
-            <ErrorBoundary
-              errorTitle="Canvas Error"
-              errorMessage="The piano roll canvas encountered an error."
-              showHomeButton={false}
-            >
-              <PianoRollCanvas
-                notes={notes}
-                selectedNoteIds={selectedNoteIds}
-                selectionAnchor={selectionAnchor}
-                playheadPosition={playheadPosition}
-                gridSnap={gridSnap}
-                isPlaying={isPlaying && !isPaused}
-                highlightedPitch={highlightedPitch}
-                activePitches={activePitches}
-                onNoteCreate={handleNoteCreate}
-                onNoteUpdate={handleNoteUpdate}
-                onNoteDelete={handleNoteDelete}
-                onNoteSelect={handleNoteSelect}
-                onToggleNoteSelection={handleToggleNoteSelection}
-                onAddToSelection={handleAddToSelection}
-                onDeselectAll={handleDeselectAll}
-                onSetSelectionAnchor={handleSetSelectionAnchor}
-                onBulkNoteUpdate={handleBulkNoteUpdate}
-                onPlayheadChange={handlePlayheadChange}
-                onTogglePlayback={handleTogglePlayback}
-                onSelectAll={selectAll}
-                onCopy={copy}
-                onCut={cut}
-                onPaste={paste}
-                onDuplicate={duplicate}
-                className="w-full h-full"
-              />
-            </ErrorBoundary>
+          {/* Piano Roll Canvas and Velocity Lane */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Piano Roll Canvas - Requirements 1.1, 1.2, 1.4: flex-[3] when velocity lane visible, full height when hidden */}
+            <div className={velocityLaneVisible && !isPianoRollFullscreen ? 'flex-[3] min-h-0' : 'flex-1 min-h-0'}>
+              <ErrorBoundary
+                errorTitle="Canvas Error"
+                errorMessage="The piano roll canvas encountered an error."
+                showHomeButton={false}
+              >
+                <PianoRollCanvas
+                  notes={notes}
+                  selectedNoteIds={selectedNoteIds}
+                  selectionAnchor={selectionAnchor}
+                  visibleRegion={visibleRegion}
+                  playheadPosition={playheadPosition}
+                  gridSnap={gridSnap}
+                  isPlaying={isPlaying && !isPaused}
+                  highlightedPitch={highlightedPitch}
+                  activePitches={activePitches}
+                  onNoteCreate={handleNoteCreate}
+                  onNoteUpdate={handleNoteUpdate}
+                  onNoteDelete={handleNoteDelete}
+                  onNoteSelect={handleNoteSelect}
+                  onToggleNoteSelection={handleToggleNoteSelection}
+                  onAddToSelection={handleAddToSelection}
+                  onDeselectAll={handleDeselectAll}
+                  onSetSelectionAnchor={handleSetSelectionAnchor}
+                  onBulkNoteUpdate={handleBulkNoteUpdate}
+                  onVisibleRegionChange={handleVisibleRegionChange}
+                  onPlayheadChange={handlePlayheadChange}
+                  onTogglePlayback={handleTogglePlayback}
+                  onSelectAll={selectAll}
+                  onCopy={copy}
+                  onCut={cut}
+                  onPaste={paste}
+                  onDuplicate={duplicate}
+                  className="w-full h-full"
+                />
+              </ErrorBoundary>
+            </div>
+
+            {/* Velocity Lane - Requirements 1.1, 1.2: ~25% height when visible */}
+            {velocityLaneVisible && !isPianoRollFullscreen && (
+              <div className="flex-1 min-h-0 border-t border-gray-700">
+                <VelocityLaneCanvas
+                  notes={notes}
+                  selectedNoteIds={selectedNoteIds}
+                  visibleRegion={visibleRegion}
+                  playheadPosition={playheadPosition}
+                  onNoteUpdate={handleNoteUpdate}
+                  onBulkNoteUpdate={handleBulkNoteUpdate}
+                  onVisibleRegionChange={handleVisibleRegionChange}
+                  onNoteSelect={handleNoteSelect}
+                  onToggleNoteSelection={handleToggleNoteSelection}
+                  onDeselectAll={handleDeselectAll}
+                  className="w-full h-full"
+                />
+              </div>
+            )}
           </div>
         </main>
 

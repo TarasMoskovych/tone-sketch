@@ -10,6 +10,7 @@ This document explains how Tone Sketch works under the hood — the rendering pi
 - [Presets](#presets)
 - [Playback System](#playback-system)
 - [State Management](#state-management)
+- [Velocity Lane](#velocity-lane)
 
 ---
 
@@ -18,19 +19,19 @@ This document explains how Tone Sketch works under the hood — the rendering pi
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         React Components                         │
-│  ┌─────────────────┐  ┌──────────────┐  ┌────────────────────┐  │
-│  │ PianoRollCanvas │  │ SynthControls│  │ TransportControls  │  │
-│  └────────┬────────┘  └──────┬───────┘  └─────────┬──────────┘  │
-├───────────┼──────────────────┼────────────────────┼─────────────┤
-│           │    Custom Hooks  │                    │             │
-│  ┌────────▼────────┐  ┌──────▼───────┐  ┌────────▼─────────┐   │
-│  │  usePianoRoll   │  │useSynthesizer│  │   usePlayback    │   │
-│  └────────┬────────┘  └──────┬───────┘  └────────┬─────────┘   │
-├───────────┼──────────────────┼────────────────────┼─────────────┤
-│           │      Libraries   │                    │             │
-│  ┌────────▼────────┐  ┌──────▼───────────────────▼─────────┐   │
-│  │  HTML5 Canvas   │  │              Tone.js               │   │
-│  └────────┬────────┘  └──────────────────┬─────────────────┘   │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐  │
+│  │ PianoRollCanvas │  │VelocityLaneCanvas│  │TransportControls│  │
+│  └────────┬────────┘  └────────┬─────────┘  └───────┬────────┘  │
+├───────────┼────────────────────┼─────────────────────┼──────────┤
+│           │    Custom Hooks    │                      │          │
+│  ┌────────▼────────┐  ┌───────▼──────┐  ┌───────────▼───────┐  │
+│  │  usePianoRoll   │  │useSynthesizer│  │    usePlayback    │  │
+│  └────────┬────────┘  └──────┬───────┘  └───────────┬───────┘  │
+├───────────┼──────────────────┼───────────────────────┼──────────┤
+│           │      Libraries   │                       │          │
+│  ┌────────▼────────┐  ┌──────▼──────────────────────▼───────┐  │
+│  │  HTML5 Canvas   │  │              Tone.js                │  │
+│  └────────┬────────┘  └──────────────────┬──────────────────┘  │
 ├───────────┼──────────────────────────────┼─────────────────────┤
 │           │      Browser APIs            │                      │
 │  ┌────────▼────────┐  ┌──────────────────▼─────────────────┐   │
@@ -449,6 +450,80 @@ User Interaction
 
 ---
 
+## Velocity Lane
+
+### Overview
+
+The `VelocityLaneCanvas` is an HTML5 Canvas-based component that renders vertical velocity bars for each note, synchronized horizontally with the PianoRoll. It follows the same rendering patterns (devicePixelRatio scaling, extracted renderers, requestAnimationFrame scheduling) and lives in a dedicated `components/VelocityLane/` directory.
+
+### Relationship to PianoRollCanvas and MelodyEditor
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                       MelodyEditor (Parent)                     │
+│  Owns: notes, selectedNoteIds, visibleRegion, playheadPosition │
+│  Owns: velocityLaneVisible state                               │
+├────────────────────────────────────────────────────────────────┤
+│                            │                                    │
+│         ┌──────────────────┼──────────────────┐                │
+│         ▼                  ▼                  ▼                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐     │
+│  │PianoRollCanvas│  │VelocityLane  │  │  Toggle Button   │     │
+│  │  (flex-[3])   │  │Canvas(flex-1)│  │                  │     │
+│  └──────────────┘  └──────────────┘  └──────────────────┘     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- **MelodyEditor** is the parent component that holds all shared state.
+- Both **PianoRollCanvas** and **VelocityLaneCanvas** receive `notes`, `selectedNoteIds`, `visibleRegion`, and `playheadPosition` as props from MelodyEditor.
+- Both components call the same callbacks (`onNoteUpdate`, `onBulkNoteUpdate`, `onVisibleRegionChange`, `onNoteSelect`, `onToggleNoteSelection`, `onDeselectAll`).
+- There is no direct coupling between PianoRollCanvas and VelocityLaneCanvas.
+
+### Data Flow
+
+```
+              MelodyEditor (shared state owner)
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+        ▼                       ▼
+ PianoRollCanvas         VelocityLaneCanvas
+        │                       │
+        └───────────┬───────────┘
+                    │
+            onVisibleRegionChange
+            (either can trigger)
+```
+
+1. **Shared state via props** — MelodyEditor manages `notes`, `selectedNoteIds`, `visibleRegion`, `playheadPosition`, and `velocityLaneVisible`. Both canvases receive these as props.
+2. **Horizontal synchronization** — Both components receive the same `visibleRegion`. Either can trigger `onVisibleRegionChange` (e.g., via wheel scroll), which updates the parent state and re-renders both in sync.
+3. **Selection synchronization** — A shared `selectedNoteIds` set flows from MelodyEditor to both components. Selection changes in either component call the same parent callbacks.
+4. **Velocity edits** — The VelocityLane calls `onNoteUpdate` (single note) or `onBulkNoteUpdate` (multi-note), reusing the same callbacks the PianoRoll already uses.
+
+### Module Structure
+
+```
+components/VelocityLane/
+├── VelocityLaneCanvas.tsx    — Main canvas component
+├── renderers.ts              — Canvas rendering functions
+├── coordinate-utils.ts       — Position/dimension calculations
+├── constants.ts              — Configuration values (colors, sizes)
+├── types.ts                  — TypeScript interfaces
+├── hooks/
+│   └── useVelocityDrag.ts    — Drag interaction hook
+└── index.ts                  — Barrel export
+```
+
+### Layout
+
+When the velocity lane is visible, MelodyEditor uses CSS flex layout:
+- **PianoRollCanvas**: `flex-[3]` (~75% of available height)
+- **VelocityLaneCanvas**: `flex-1` (~25% of available height)
+
+When hidden, PianoRollCanvas takes the full available height.
+
+---
+
 ## Why This Works in Browsers
 
 1. **Web Audio API is native** — Written in C++, runs at near-native speed
@@ -463,7 +538,12 @@ User Interaction
 
 | File | Purpose |
 |------|---------|
-| `components/PianoRollCanvas.tsx` | Main canvas rendering component |
+| `components/PianoRoll/PianoRollCanvas.tsx` | Main piano roll canvas rendering component |
+| `components/VelocityLane/VelocityLaneCanvas.tsx` | Velocity lane canvas component |
+| `components/VelocityLane/renderers.ts` | Velocity lane rendering functions |
+| `components/VelocityLane/coordinate-utils.ts` | Velocity lane coordinate calculations |
+| `components/VelocityLane/hooks/useVelocityDrag.ts` | Velocity drag interaction hook |
+| `components/MelodyEditor/MelodyEditor.tsx` | Parent component managing shared state |
 | `hooks/usePianoRoll.ts` | Note and selection state management |
 | `hooks/usePlayback.ts` | Transport and playhead control |
 | `hooks/useSynthesizer.ts` | Synthesizer configuration |

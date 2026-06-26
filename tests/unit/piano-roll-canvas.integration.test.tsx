@@ -145,7 +145,7 @@ describe('PianoRollCanvas Integration Tests', () => {
       observe = vi.fn();
       unobserve = vi.fn();
       disconnect = vi.fn();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+       
       constructor(_callback: ResizeObserverCallback) {
         // Store callback but don't call it automatically
       }

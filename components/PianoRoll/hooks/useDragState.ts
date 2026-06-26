@@ -92,7 +92,7 @@ export interface UseDragStateReturn {
 export function useDragState(options: UseDragStateOptions): UseDragStateReturn {
   const {
     visibleRegion,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     gridSnap: _gridSnap,
     containerRef,
     effectiveTotalBeats,
@@ -146,7 +146,7 @@ export function useDragState(options: UseDragStateOptions): UseDragStateReturn {
    * since it requires access to coordinate conversion functions that
    * depend on the current visible region and container dimensions.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const updateNoteDrag = useCallback((_currentX: number, _currentY: number) => {
     if (!dragState) return;
 
