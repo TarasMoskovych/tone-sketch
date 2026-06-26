@@ -32,6 +32,9 @@ export type { EffectsControlsProps } from './EffectsControls';
 export { PresetSelector } from './PresetSelector';
 export type { PresetSelectorProps } from './PresetSelector';
 
+export { MelodyEditor } from './MelodyEditor';
+export type { MelodyEditorProps, EditorState, LoadNotesFn } from './MelodyEditor';
+
 export { MidiControls } from './MidiControls';
 export type { MidiControlsProps } from './MidiControls';
 

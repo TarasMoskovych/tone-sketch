@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getMelodyById } from '@/lib/melodies';
-import MelodyEditor from './MelodyEditor';
+import EditMelodyClient from './EditMelodyClient';
 
 interface MelodyPageProps {
   params: Promise<{ id: string }>;
@@ -27,7 +27,7 @@ export default async function MelodyPage({ params }: MelodyPageProps) {
   }
 
   return (
-    <MelodyEditor
+    <EditMelodyClient
       melody={{
         id: melody.id,
         title: melody.title,

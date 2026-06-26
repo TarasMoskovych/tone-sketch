@@ -35,3 +35,7 @@ export type { UseKeyboardShortcutsProps } from './useKeyboardShortcuts';
 // Keyboard piano playing
 export { useKeyboardPiano, KEYBOARD_PIANO_MAPPING } from './useKeyboardPiano';
 export type { UseKeyboardPianoProps, UseKeyboardPianoReturn } from './useKeyboardPiano';
+
+// Copy/paste clipboard operations
+export { useCopyPaste } from './useCopyPaste';
+export type { UseCopyPasteProps, UseCopyPasteReturn } from './useCopyPaste';

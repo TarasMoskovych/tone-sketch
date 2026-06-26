@@ -53,6 +53,10 @@ export function PianoRollCanvas({
   onTogglePlayback,
   keyboardShortcutsEnabled = true,
   onSelectAll,
+  onCopy,
+  onCut,
+  onPaste,
+  onDuplicate,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   highlightedPitch: _highlightedPitch = undefined,
   activePitches = new Set(),
@@ -129,7 +133,7 @@ export function PianoRollCanvas({
   }, [onNoteDelete, selectedNoteIds]);
 
   const handlePlaybackShortcut = useCallback(() => onTogglePlayback?.(), [onTogglePlayback]);
-  useKeyboardShortcuts({ enabled: keyboardShortcutsEnabled, onTogglePlayback: handlePlaybackShortcut, onDeleteNote: handleDeleteShortcut, onSelectAll, containerRef });
+  useKeyboardShortcuts({ enabled: keyboardShortcutsEnabled, onTogglePlayback: handlePlaybackShortcut, onDeleteNote: handleDeleteShortcut, onSelectAll, onCopy, onCut, onPaste, onDuplicate, isDragging: !!dragState || !!marqueeState, containerRef });
 
   // Auto-scroll during playback
   useEffect(() => {
@@ -277,6 +281,14 @@ export function PianoRollCanvas({
 
     const container = containerRef.current;
     if (!container) return;
+
+    // Ensure the canvas retains focus for keyboard shortcuts (Ctrl+C/V/X/D, Space, Delete).
+    // preventDefault() below prevents the browser's default focus behavior,
+    // so we explicitly focus the canvas element.
+    const canvas = canvasRef.current;
+    if (canvas && document.activeElement !== canvas) {
+      canvas.focus();
+    }
 
     const rect = container.getBoundingClientRect();
     const cx = e.clientX - rect.left;

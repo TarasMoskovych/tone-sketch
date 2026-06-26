@@ -186,6 +186,11 @@ export function useKeyboardPiano({
       return;
     }
 
+    // Don't trigger notes when modifier keys are held (Ctrl/Cmd) — these are shortcuts
+    if (event.ctrlKey || event.metaKey) {
+      return;
+    }
+
     // Get the lowercase key
     const key = event.key.toLowerCase();
 

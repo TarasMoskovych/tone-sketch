@@ -16,6 +16,16 @@ export interface UseKeyboardShortcutsProps {
   onDeleteNote: () => void;
   /** Callback to select all notes (Ctrl+A/Cmd+A) */
   onSelectAll?: () => void;
+  /** Callback for copy operation (Ctrl+C/Cmd+C) */
+  onCopy?: () => void;
+  /** Callback for cut operation (Ctrl+X/Cmd+X) */
+  onCut?: () => void;
+  /** Callback for paste operation (Ctrl+V/Cmd+V) */
+  onPaste?: () => void;
+  /** Callback for duplicate operation (Ctrl+D/Cmd+D) */
+  onDuplicate?: () => void;
+  /** Whether a drag/resize/marquee operation is in progress */
+  isDragging?: boolean;
   /** Reference to the container element that should have focus for shortcuts to work */
   containerRef: RefObject<HTMLElement | null>;
 }
@@ -104,6 +114,11 @@ export function useKeyboardShortcuts({
   onTogglePlayback,
   onDeleteNote,
   onSelectAll,
+  onCopy,
+  onCut,
+  onPaste,
+  onDuplicate,
+  isDragging,
   containerRef,
 }: UseKeyboardShortcutsProps): void {
   /**
@@ -151,11 +166,47 @@ export function useKeyboardShortcuts({
         }
         break;
 
+      case 'KeyC':
+        // Copy (Ctrl+C/Cmd+C) — Requirement 6.1, 6.2, 6.3, 6.4
+        if ((event.ctrlKey || event.metaKey) && onCopy) {
+          if (isDragging) break;
+          event.preventDefault();
+          onCopy();
+        }
+        break;
+
+      case 'KeyX':
+        // Cut (Ctrl+X/Cmd+X) — Requirement 6.1, 6.2, 6.3, 6.4
+        if ((event.ctrlKey || event.metaKey) && onCut) {
+          if (isDragging) break;
+          event.preventDefault();
+          onCut();
+        }
+        break;
+
+      case 'KeyV':
+        // Paste (Ctrl+V/Cmd+V) — Requirement 6.1, 6.2, 6.3, 6.4
+        if ((event.ctrlKey || event.metaKey) && onPaste) {
+          if (isDragging) break;
+          event.preventDefault();
+          onPaste();
+        }
+        break;
+
+      case 'KeyD':
+        // Duplicate (Ctrl+D/Cmd+D) — Requirement 6.1, 6.2, 6.3, 6.4
+        if ((event.ctrlKey || event.metaKey) && onDuplicate) {
+          if (isDragging) break;
+          event.preventDefault();
+          onDuplicate();
+        }
+        break;
+
       default:
         // No action for other keys
         break;
     }
-  }, [enabled, onTogglePlayback, onDeleteNote, onSelectAll, containerRef]);
+  }, [enabled, onTogglePlayback, onDeleteNote, onSelectAll, onCopy, onCut, onPaste, onDuplicate, isDragging, containerRef]);
 
   /**
    * Set up and clean up keyboard event listeners

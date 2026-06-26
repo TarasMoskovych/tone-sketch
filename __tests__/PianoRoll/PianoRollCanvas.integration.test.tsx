@@ -135,7 +135,7 @@ describe('PianoRollCanvas Integration Tests', () => {
     mockContext = createMockCanvasContext();
 
     // Mock HTMLCanvasElement.getContext
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext);
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
     // Mock window.devicePixelRatio
     Object.defineProperty(window, 'devicePixelRatio', { value: 1, writable: true });

@@ -87,10 +87,16 @@ npm run test:watch  # Run tests in watch mode
 | Key | Action |
 |-----|--------|
 | Space | Play/Pause |
-| S | Stop |
-| L | Toggle Loop |
+| Delete / Backspace | Delete selected notes |
+| Ctrl+A | Select all notes |
+| Ctrl+C | Copy selected notes |
+| Ctrl+X | Cut selected notes |
+| Ctrl+V | Paste notes at playhead |
+| Ctrl+D | Duplicate selected notes |
 | Z-M | Play notes C3-B3 |
-| Q-U | Play notes C4-B4 |
+| A-L | Play notes C4-D5 |
+| Q-P | Play notes C5-E6 |
+| 2, 3, 5, 6, 7 | Play sharps/flats |
 | Esc | Exit fullscreen |
 
 ## 📁 Project Structure

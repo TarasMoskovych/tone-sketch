@@ -116,6 +116,26 @@ export interface PianoRollCanvasProps {
    */
   onSelectAll?: () => void;
   /**
+   * Callback for copy operation (Ctrl+C/Cmd+C)
+   * Requirements: 1.1, 6.1, 6.3, 6.4 - Copy selected notes to clipboard
+   */
+  onCopy?: () => void;
+  /**
+   * Callback for cut operation (Ctrl+X/Cmd+X)
+   * Requirements: 2.1, 6.1, 6.3, 6.4 - Cut selected notes
+   */
+  onCut?: () => void;
+  /**
+   * Callback for paste operation (Ctrl+V/Cmd+V)
+   * Requirements: 3.1, 6.1, 6.3, 6.4 - Paste notes at playhead
+   */
+  onPaste?: () => void;
+  /**
+   * Callback for duplicate operation (Ctrl+D/Cmd+D)
+   * Requirements: 4.1, 6.1, 6.3, 6.4 - Duplicate selected notes
+   */
+  onDuplicate?: () => void;
+  /**
    * Currently highlighted pitch from keyboard piano (most recently pressed key)
    * Requirement 40.5: Highlight piano row background when keyboard piano key is held
    * Used for visual feedback when playing notes via computer keyboard
