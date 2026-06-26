@@ -471,11 +471,7 @@ export function MelodyEditor({
             <button
               type="button"
               onClick={() => {
-                const newVisible = !velocityLaneVisible;
-                setVelocityLaneVisible(newVisible);
-                if (newVisible && isPianoRollFullscreen) {
-                  setIsPianoRollFullscreen(false);
-                }
+                setVelocityLaneVisible(!velocityLaneVisible);
               }}
               className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                 velocityLaneVisible
@@ -496,7 +492,7 @@ export function MelodyEditor({
           {/* Piano Roll Canvas and Velocity Lane */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Piano Roll Canvas - Requirements 1.1, 1.2, 1.4: flex-[3] when velocity lane visible, full height when hidden */}
-            <div className={velocityLaneVisible && !isPianoRollFullscreen ? 'flex-[3] min-h-0' : 'flex-1 min-h-0'}>
+            <div className={velocityLaneVisible ? 'flex-[3] min-h-0' : 'flex-1 min-h-0'}>
               <ErrorBoundary
                 errorTitle="Canvas Error"
                 errorMessage="The piano roll canvas encountered an error."
@@ -535,7 +531,7 @@ export function MelodyEditor({
             </div>
 
             {/* Velocity Lane - Requirements 1.1, 1.2: ~25% height when visible */}
-            {velocityLaneVisible && !isPianoRollFullscreen && (
+            {velocityLaneVisible && (
               <div className="flex-1 min-h-0 border-t border-gray-700">
                 <VelocityLaneCanvas
                   notes={notes}
