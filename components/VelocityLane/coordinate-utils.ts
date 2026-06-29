@@ -112,9 +112,19 @@ export function noteToBarWidth(
 }
 
 /**
+ * Hit-test tolerance in pixels for the "Г" shape strokes (stem and cap).
+ * This defines how close a click needs to be to the stroke to register as a hit.
+ */
+const HIT_TOLERANCE = 6;
+
+/**
  * Find which note's velocity bar is at a given pixel position.
+ * Hit detection matches the "Г" shape rendering: vertical stem on the left
+ * and horizontal cap at the top. A click registers if it's within HIT_TOLERANCE
+ * pixels of either stroke.
+ *
  * When multiple bars overlap, prefers selected notes (they render on top).
- * Among same-selection-state bars, prefers the one whose top edge is closest.
+ * Among same-selection-state bars, prefers the one whose cap is closest vertically.
  * Requirements: 3.5
  *
  * @param notes - Array of notes to check
@@ -146,20 +156,33 @@ export function findBarAtPosition(
     // Enforce minimum bar width for clickability
     barWidth = Math.max(barWidth, VELOCITY_LANE_CONFIG.MIN_BAR_WIDTH);
 
-    const barHeight = velocityToBarHeight(note.velocity, gridHeight);
     const barY = velocityToBarY(note.velocity, gridHeight, gridY);
+    const barBottom = gridY + gridHeight;
 
-    if (x >= barX && x <= barX + barWidth && y >= barY && y <= barY + barHeight) {
+    // Hit test against the "Г" shape:
+    // 1. Vertical stem: x near barX, y between barY (top) and barBottom (baseline)
+    const nearStem =
+      Math.abs(x - barX) <= HIT_TOLERANCE &&
+      y >= barY - HIT_TOLERANCE &&
+      y <= barBottom + HIT_TOLERANCE;
+
+    // 2. Horizontal cap: y near barY (top), x between barX and barX + barWidth
+    const nearCap =
+      Math.abs(y - barY) <= HIT_TOLERANCE &&
+      x >= barX - HIT_TOLERANCE &&
+      x <= barX + barWidth + HIT_TOLERANCE;
+
+    if (nearStem || nearCap) {
       const isSelected = selectedNoteIds?.has(note.id) ?? false;
-      const distanceToTop = Math.abs(y - barY);
+      const distanceToCap = Math.abs(y - barY);
 
       // Selected notes always win over unselected (they render on top)
-      // Among same selection state, prefer closest top edge
+      // Among same selection state, prefer closest cap (top edge)
       if (
         (isSelected && !bestIsSelected) ||
-        (isSelected === bestIsSelected && distanceToTop < bestDistance)
+        (isSelected === bestIsSelected && distanceToCap < bestDistance)
       ) {
-        bestDistance = distanceToTop;
+        bestDistance = distanceToCap;
         bestIsSelected = isSelected;
         bestMatch = note;
       }

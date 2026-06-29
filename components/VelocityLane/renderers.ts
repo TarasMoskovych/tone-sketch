@@ -132,12 +132,21 @@ export function renderVelocityBars(
       const barY = gridY + gridHeight - barHeight;
 
       // Choose color based on selection state (Requirement 6.1)
-      ctx.fillStyle = isSelected
+      const barColor = isSelected
         ? VELOCITY_LANE_CONFIG.BAR_SELECTED_COLOR
         : VELOCITY_LANE_CONFIG.BAR_COLOR;
 
-      // Render the bar
-      ctx.fillRect(barX, barY, barWidth, barHeight);
+      // Render the bar as a "Г" shape: vertical stem on the left + horizontal cap on top
+      ctx.strokeStyle = barColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Start at the bottom of the vertical stem
+      ctx.moveTo(barX, gridY + gridHeight);
+      // Draw vertical stem up to the top
+      ctx.lineTo(barX, barY);
+      // Draw horizontal cap to the right
+      ctx.lineTo(barX + barWidth, barY);
+      ctx.stroke();
     }
   }
 }
