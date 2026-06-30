@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db';
 import type { Melody, MelodySummary, Note, SynthesizerConfig } from '../types';
+import { computeMelodyDuration } from './duration';
 
 /**
  * Input data for creating a new melody.
@@ -87,12 +88,16 @@ function rowToMelody(row: Record<string, unknown>): Melody {
 /**
  * Convert database row to MelodySummary for feed display.
  * Uses dbTimestampToUtcDate to ensure proper UTC interpretation.
+ * Computes durationSeconds from notes and tempo using computeMelodyDuration.
  */
 function rowToMelodySummary(row: Record<string, unknown>): MelodySummary {
+  const notes = (row.notes ?? []) as Note[];
+  const tempo = (row.tempo ?? 0) as number;
   return {
     id: row.id as string,
     title: row.title as string,
     createdAt: dbTimestampToUtcDate(row.created_at).toISOString(),
+    durationSeconds: computeMelodyDuration(notes, tempo),
   };
 }
 
@@ -246,7 +251,7 @@ export async function getMelodiesPaginated(
 
   // Get paginated melodies ordered by created_at DESC (newest first)
   const rows = await sql`
-    SELECT id, title, created_at
+    SELECT id, title, notes, tempo, created_at
     FROM melodies
     ORDER BY created_at DESC
     LIMIT ${safeLimit}

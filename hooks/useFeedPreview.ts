@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import * as Tone from 'tone';
 import { SynthesizerEngine } from '@/lib/synthesizer';
 import type { Note } from '@/types/note';
 import type { SynthesizerConfig } from '@/types/synth';
@@ -39,6 +40,8 @@ export interface UseFeedPreviewReturn {
   playPreview: (melodyId: string) => void;
   /** Stop current preview playback */
   stopPreview: () => void;
+  /** Ref to the Tone.Analyser node for visualizer data access */
+  analyserRef: React.RefObject<Tone.Analyser | null>;
 }
 
 /**
@@ -70,17 +73,33 @@ export function useFeedPreview(): UseFeedPreviewReturn {
   // Synthesizer engine reference for preview playback
   const synthRef = useRef<SynthesizerEngine | null>(null);
 
+  // Tone.Analyser ref for visualizer access (FFT size 64, smoothing 0.8)
+  const analyserRef = useRef<Tone.Analyser | null>(null);
+
   // Track the current melody end time for playback completion detection
   const melodyEndTimeRef = useRef<number>(0);
 
   /**
-   * Cleanup synthesizer on unmount
+   * Cleanup synthesizer and analyser on unmount
    */
   useEffect(() => {
     return () => {
-      if (synthRef.current) {
-        synthRef.current.dispose();
-        synthRef.current = null;
+      try {
+        if (synthRef.current) {
+          synthRef.current.dispose();
+          synthRef.current = null;
+        }
+      } finally {
+        // Always disconnect and dispose the analyser, even if synth disposal fails
+        if (analyserRef.current) {
+          try {
+            analyserRef.current.disconnect();
+          } catch {
+            // Ignore disconnect errors
+          }
+          analyserRef.current.dispose();
+          analyserRef.current = null;
+        }
       }
     };
   }, []);
@@ -165,6 +184,14 @@ export function useFeedPreview(): UseFeedPreviewReturn {
       // Initialize or get synthesizer
       if (!synthRef.current) {
         synthRef.current = new SynthesizerEngine();
+
+        // Create and connect the Tone.Analyser (FFT size 64, minimal smoothing to avoid jitter)
+        if (!analyserRef.current) {
+          analyserRef.current = new Tone.Analyser('fft', 64);
+          analyserRef.current.smoothing = 0.1;
+        }
+        // Connect analyser at end of audio chain (after limiter, before destination)
+        synthRef.current.connectAnalyser(analyserRef.current);
       }
 
       // Configure synth with melody's saved settings
@@ -218,6 +245,7 @@ export function useFeedPreview(): UseFeedPreviewReturn {
     previewError,
     playPreview,
     stopPreview,
+    analyserRef,
   };
 }
 

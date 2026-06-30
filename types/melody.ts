@@ -33,4 +33,6 @@ export interface MelodySummary {
   title: string;
   /** ISO 8601 formatted creation date string */
   createdAt: string;
+  /** Total melody duration in seconds, rounded to 2 decimal places */
+  durationSeconds: number;
 }

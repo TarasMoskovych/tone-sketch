@@ -120,8 +120,8 @@ describe('API Melodies Integration Tests', () => {
   describe('GET /api/melodies - List Paginated Melodies', () => {
     it('should return paginated melodies with default parameters', async () => {
       const mockMelodies = [
-        { id: '1', title: 'Melody 1', createdAt: '2024-01-15T12:00:00.000Z' },
-        { id: '2', title: 'Melody 2', createdAt: '2024-01-14T12:00:00.000Z' },
+        { id: '1', title: 'Melody 1', createdAt: '2024-01-15T12:00:00.000Z', durationSeconds: 0 },
+        { id: '2', title: 'Melody 2', createdAt: '2024-01-14T12:00:00.000Z', durationSeconds: 0 },
       ];
 
       vi.mocked(getMelodiesPaginated).mockResolvedValue({

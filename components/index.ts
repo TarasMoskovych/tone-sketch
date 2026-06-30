@@ -19,6 +19,9 @@ export type { MelodyCardProps } from './MelodyCard';
 export { MelodyFeed } from './MelodyFeed';
 export type { MelodyFeedProps } from './MelodyFeed';
 
+export { AudioVisualizer } from './AudioVisualizer';
+export type { AudioVisualizerProps } from './AudioVisualizer';
+
 export { PianoRollSkeleton } from './PianoRollSkeleton';
 
 export { ErrorBoundary } from './ErrorBoundary';

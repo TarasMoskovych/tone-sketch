@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MelodyCard } from './MelodyCard';
 import { useFeedPreview } from '@/hooks';
 import type { MelodySummary } from '../types/melody';
@@ -144,7 +144,41 @@ export function MelodyFeed({ initialMelodies = [] }: MelodyFeedProps) {
     previewError,
     playPreview,
     stopPreview,
+    analyserRef,
   } = useFeedPreview();
+
+  // Track which melody should show the visualizer during fade-out.
+  // fadingOutMelodyId holds the ID of a melody whose visualizer is fading out.
+  const [fadingOutMelodyId, setFadingOutMelodyId] = useState<string | null>(null);
+  const prevPreviewingIdRef = useRef<string | null>(null);
+
+  // Detect transitions: when previewingMelodyId changes from a value to null,
+  // start the fade-out on the previously-playing melody.
+  useEffect(() => {
+    const prevId = prevPreviewingIdRef.current;
+    prevPreviewingIdRef.current = previewingMelodyId;
+
+    if (!previewingMelodyId && prevId) {
+      // Playback just stopped — start fade-out
+      setFadingOutMelodyId(prevId);
+    } else if (previewingMelodyId) {
+      // A new melody started — cancel any existing fade-out
+      setFadingOutMelodyId(null);
+    }
+  }, [previewingMelodyId]);
+
+  // Clear fade-out state after animation completes (~800ms)
+  useEffect(() => {
+    if (fadingOutMelodyId) {
+      const timeout = setTimeout(() => {
+        setFadingOutMelodyId(null);
+      }, 800);
+      return () => clearTimeout(timeout);
+    }
+  }, [fadingOutMelodyId]);
+
+  // Determine which melody should show the visualizer
+  const visualizerMelodyId = previewingMelodyId ?? fadingOutMelodyId;
 
   // Track which melody is currently loading for preview (for UI indicator)
   const [loadingMelodyId, setLoadingMelodyId] = useState<string | null>(null);
@@ -332,14 +366,17 @@ export function MelodyFeed({ initialMelodies = [] }: MelodyFeedProps) {
         aria-busy={isLoadingMore}
       >
         {melodies.map((melody) => (
-          <MelodyCard
-            key={melody.id}
-            melody={melody}
-            isPlaying={previewingMelodyId === melody.id}
-            isLoading={loadingMelodyId === melody.id && isPreviewLoading}
-            onPlayClick={() => handlePlayClick(melody.id)}
-            onStopClick={handleStopClick}
-          />
+          <React.Fragment key={melody.id}>
+            <MelodyCard
+              melody={melody}
+              isPlaying={previewingMelodyId === melody.id}
+              isLoading={loadingMelodyId === melody.id && isPreviewLoading}
+              onPlayClick={() => handlePlayClick(melody.id)}
+              onStopClick={handleStopClick}
+              analyserRef={analyserRef}
+              showVisualizer={visualizerMelodyId === melody.id}
+            />
+          </React.Fragment>
         ))}
       </div>
 

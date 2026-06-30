@@ -524,6 +524,60 @@ When hidden, PianoRollCanvas takes the full available height.
 
 ---
 
+## Homepage Feed & Audio Visualizer
+
+### Feed Preview Audio Chain
+
+The homepage feed uses a separate `useFeedPreview` hook for preview playback. It adds a `Tone.Analyser` node at the end of the audio chain to provide real-time frequency data for the visualizer:
+
+```
+┌──────────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐
+│  PolySynth   │ → │  Filter  │ → │ Effects  │ → │Volume/Limiter│ → │ Tone.Analyser│
+└──────────────┘   └──────────┘   └──────────┘   └──────────────┘   └──────┬───────┘
+                                                                             │
+                                                                             ▼
+                                                                      ┌──────────────┐
+                                                                      │  Destination │
+                                                                      └──────────────┘
+```
+
+The analyser uses FFT size 64 (producing 32 frequency bins) with smoothing 0.8 for stable visual output. It's connected after the limiter so the visualized data reflects the final audible output.
+
+### AudioVisualizer Component
+
+`AudioVisualizer` is a canvas-based component that reads frequency data and draws bars on each animation frame:
+
+```
+requestAnimationFrame loop:
+  1. Read Float32Array (dB values) from Tone.Analyser
+  2. Normalize dB (-100 to 0) → amplitude (0 to 255)
+  3. Calculate bar height: (amplitude / 255) × canvasHeight
+  4. Clear canvas → draw 32 bars evenly spaced
+  5. Schedule next frame
+```
+
+**Performance optimizations:**
+- **IntersectionObserver** — Cancels the rAF loop when fully off-screen (0% intersection), resumes immediately when visible
+- **Frame budget** — Skips visual updates when frame time exceeds 16ms to prevent jank
+- **Canvas rendering** — Avoids DOM mutations entirely; uses GPU-accelerated 2D canvas
+
+**Accessibility:**
+- `aria-hidden="true"` and `tabindex="-1"` keep it out of the accessibility tree and tab order
+- No ARIA roles or live regions that could interfere with screen reader navigation
+
+### Duration Computation
+
+Melody duration is computed server-side in the API to keep the feed payload lightweight:
+
+```typescript
+// Formula: (maxEndBeat / tempo) * 60, rounded to 2 decimal places
+durationSeconds = Math.round((Math.max(...notes.map(n => n.start + n.duration)) / tempo * 60) * 100) / 100
+```
+
+The `formatDuration` utility formats this for display: `"0:SS"`, `"M:SS"`, or `"H:MM:SS"`.
+
+---
+
 ## Why This Works in Browsers
 
 1. **Web Audio API is native** — Written in C++, runs at near-native speed
@@ -553,3 +607,8 @@ When hidden, PianoRollCanvas takes the full available height.
 | `types/synth.ts` | Synthesizer type definitions |
 | `types/note.ts` | Note data structure |
 | `types/grid.ts` | Grid and visible region types |
+| `components/AudioVisualizer.tsx` | Canvas-based frequency bar visualizer |
+| `components/MelodyFeed.tsx` | Homepage feed with infinite scroll and visualizer |
+| `hooks/useFeedPreview.ts` | Feed preview playback with Tone.Analyser |
+| `lib/duration.ts` | Melody duration computation |
+| `utils/duration.ts` | Duration formatting utility |

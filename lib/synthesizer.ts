@@ -146,6 +146,10 @@ export interface ISynthesizerEngine {
   offAudioStateChange(callback: AudioStateChangeCallback): void;
   resumeAudioContext(): Promise<boolean>;
   clearError(): void;
+
+  // Audio chain access
+  connectAnalyser(analyser: Tone.ToneAudioNode): void;
+  disconnectAnalyser(analyser: Tone.ToneAudioNode): void;
 }
 
 /**
@@ -207,6 +211,9 @@ export class SynthesizerEngine implements ISynthesizerEngine {
 
   // Master limiter prevents clipping for clean output
   private limiter: Tone.Limiter | null = null;
+
+  // External analyser node connected at end of chain (after limiter, before destination)
+  private externalAnalyser: Tone.ToneAudioNode | null = null;
 
   // Playback state management
   private playbackState: PlaybackState = 'stopped';
@@ -573,9 +580,42 @@ export class SynthesizerEngine implements ISynthesizerEngine {
     currentNode.connect(this.volume);
     if (this.limiter) {
       this.volume.connect(this.limiter);
-      this.limiter.toDestination();
+      if (this.externalAnalyser) {
+        this.limiter.connect(this.externalAnalyser);
+        this.externalAnalyser.toDestination();
+      } else {
+        this.limiter.toDestination();
+      }
     } else {
-      this.volume.toDestination();
+      if (this.externalAnalyser) {
+        this.volume.connect(this.externalAnalyser);
+        this.externalAnalyser.toDestination();
+      } else {
+        this.volume.toDestination();
+      }
+    }
+  }
+
+  /**
+   * Connect an external analyser node at the end of the audio chain
+   * (after limiter, before destination). Rebuilds the chain to include it.
+   */
+  connectAnalyser(analyser: Tone.ToneAudioNode): void {
+    if (this.isDisposed) return;
+    this.externalAnalyser = analyser;
+    this.connectAudioChain();
+  }
+
+  /**
+   * Disconnect and remove the external analyser from the audio chain.
+   * Rebuilds the chain without it.
+   */
+  disconnectAnalyser(analyser: Tone.ToneAudioNode): void {
+    if (this.externalAnalyser === analyser) {
+      this.externalAnalyser = null;
+      if (!this.isDisposed) {
+        this.connectAudioChain();
+      }
     }
   }
 

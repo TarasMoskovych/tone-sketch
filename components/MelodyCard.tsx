@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { useCallback } from 'react';
+import type * as Tone from 'tone';
 import type { MelodySummary } from '../types/melody';
 import { truncateTitle } from '../utils/text';
+import { formatDuration } from '../utils/duration';
+import { AudioVisualizer } from './AudioVisualizer';
 import { PlayIcon, StopIcon, LoadingIcon, MusicNoteIcon } from './icons';
 
 /**
@@ -29,6 +32,10 @@ export interface MelodyCardProps {
    * Requirement 23.2: Stop current playback when different melody clicked
    */
   onStopClick: () => void;
+  /** Reference to the Tone.Analyser node for the inline visualizer */
+  analyserRef?: React.RefObject<Tone.Analyser | null>;
+  /** Whether to show the inline audio visualizer */
+  showVisualizer?: boolean;
 }
 
 /**
@@ -119,6 +126,8 @@ export function MelodyCard({
   isLoading,
   onPlayClick,
   onStopClick,
+  analyserRef,
+  showVisualizer = false,
 }: MelodyCardProps) {
   /**
    * Handle play/stop button click
@@ -183,11 +192,28 @@ export function MelodyCard({
             {truncatedTitle}
           </h3>
 
+          {/* Duration - Requirements 2.1, 2.7 */}
+          <p className="mt-1 text-sm text-gray-400">
+            {formatDuration(melody.durationSeconds)}
+          </p>
+
           {/* Creation date - Requirement 22.2 */}
           <p className="mt-1 text-sm text-gray-400">
             {formattedDate}
           </p>
         </div>
+
+        {/* Inline audio visualizer - shown when playing or fading out */}
+        {showVisualizer && analyserRef && (
+          <div className="flex-shrink-0 w-24">
+            <AudioVisualizer
+              analyserRef={analyserRef}
+              barCount={16}
+              isPlaying={isPlaying}
+              height={32}
+            />
+          </div>
+        )}
 
         {/* Play/Stop button - Requirement 22.3, 23.1 */}
         <button

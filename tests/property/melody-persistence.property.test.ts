@@ -373,6 +373,7 @@ describe('Property 17: Feed Sorting', () => {
     title: fc.string({ minLength: 1, maxLength: 100 }),
     createdAt: fc.integer({ min: 1577836800000, max: 1924991999000 }) // 2020-01-01 to 2030-12-31
       .map((ts) => new Date(ts).toISOString()),
+    durationSeconds: fc.nat({ max: 36000 }).map((n) => Math.round(n * 0.01 * 100) / 100),
   });
 
   /**
@@ -458,6 +459,7 @@ describe('Property 17: Feed Sorting', () => {
             id,
             title: `Melody ${id}`,
             createdAt: sharedDate.toISOString(),
+            durationSeconds: 0,
           }));
 
           const sorted = sortByCreatedAtDescending(melodies);

@@ -924,6 +924,7 @@ function createMockMelodySummary(overrides: Partial<MelodySummary> = {}): Melody
     id: crypto.randomUUID(),
     title: 'Test Melody',
     createdAt: new Date().toISOString(),
+    durationSeconds: 0,
     ...overrides,
   };
 }

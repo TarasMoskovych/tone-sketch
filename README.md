@@ -17,6 +17,8 @@ A browser-based piano roll for drawing melodies, crafting sounds, and sharing mu
 - **Save & Share** — Save melodies to the cloud and share via unique URLs
 - **Keyboard Shortcuts** — Play notes with your computer keyboard (Z-M for C3-B3, Q-U for C4-B4)
 - **Velocity Lane Editor** — FL Studio-style collapsible panel below the piano roll for visualizing and editing note velocities with single and multi-note drag support
+- **Homepage Feed** — Browse community melodies with duration display and one-click preview
+- **Audio Visualizer** — Real-time frequency bar animation below the playing card on the homepage
 - **Loop Mode** — Continuously loop your melody during playback
 - **Tempo Control** — Adjust playback speed from 40-240 BPM
 

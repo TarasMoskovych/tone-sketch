@@ -105,3 +105,6 @@ export {
   // Functions
   truncateTitle,
 } from './text';
+
+// Duration formatting utilities
+export { formatDuration } from './duration';

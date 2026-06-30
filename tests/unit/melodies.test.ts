@@ -252,9 +252,9 @@ describe('Melody Data Access Functions', () => {
 
       expect(result).toEqual({
         melodies: [
-          { id: '1', title: 'Melody 1', createdAt: '2024-01-03T00:00:00.000Z' },
-          { id: '2', title: 'Melody 2', createdAt: '2024-01-02T00:00:00.000Z' },
-          { id: '3', title: 'Melody 3', createdAt: '2024-01-01T00:00:00.000Z' },
+          { id: '1', title: 'Melody 1', createdAt: '2024-01-03T00:00:00.000Z', durationSeconds: 0 },
+          { id: '2', title: 'Melody 2', createdAt: '2024-01-02T00:00:00.000Z', durationSeconds: 0 },
+          { id: '3', title: 'Melody 3', createdAt: '2024-01-01T00:00:00.000Z', durationSeconds: 0 },
         ],
         total: 10,
         page: 1,
