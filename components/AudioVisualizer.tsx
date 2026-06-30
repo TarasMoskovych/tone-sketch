@@ -136,8 +136,8 @@ export function AudioVisualizer({
       }
       lastFrameTimeRef.current = timestamp;
 
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
+      const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+      const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
       const barWidth = canvasWidth / barCount;
       const amplitudes = barAmplitudesRef.current;
       const peaks = peakAmplitudesRef.current;
@@ -266,16 +266,26 @@ export function AudioVisualizer({
     startAnimationLoop();
   }, [isPlaying, startAnimationLoop]);
 
-  // ResizeObserver for canvas sizing
+  // ResizeObserver for canvas sizing (with devicePixelRatio for sharp rendering)
+  // Also listens to window resize as fallback for zoom changes where
+  // ResizeObserver may not fire (e.g., zoom out without container size change).
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
     const updateCanvasSize = () => {
+      const dpr = window.devicePixelRatio || 1;
       const width = container.clientWidth;
-      canvas.width = width;
-      canvas.height = height;
+      if (width === 0) return;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
     };
 
     updateCanvasSize();
@@ -285,8 +295,12 @@ export function AudioVisualizer({
     });
     resizeObserver.observe(container);
 
+    // Fallback for zoom changes that may not trigger ResizeObserver
+    window.addEventListener('resize', updateCanvasSize);
+
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('resize', updateCanvasSize);
     };
   }, [height]);
 
