@@ -42,12 +42,12 @@ const acousticPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.75,
-    envelope: { attack: 0.005, decay: 1.2, sustain: 0.05, release: 0.6 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3800 },
+    volume: 0.78,
+    envelope: { attack: 0.002, decay: 1.8, sustain: 0.02, release: 1.2 },
+    filter: { enabled: true, type: 'lowpass', frequency: 4200 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.6, wetDry: 0.35 },
+      reverb: { enabled: true, roomSize: 0.45, wetDry: 0.22 },
     },
   },
 };
@@ -57,13 +57,13 @@ const electricPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'sine',
-    volume: 0.75,
-    envelope: { attack: 0.003, decay: 0.4, sustain: 0.5, release: 0.6 },
-    filter: { enabled: true, type: 'lowpass', frequency: 3500 },
+    volume: 0.76,
+    envelope: { attack: 0.001, decay: 0.6, sustain: 0.35, release: 0.8 },
+    filter: { enabled: true, type: 'lowpass', frequency: 3200 },
     effects: {
       ...defaultEffectsOff,
-      chorus: { enabled: true, rate: 1.0, depth: 0.45, wetDry: 0.35 },
-      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.25 },
+      chorus: { enabled: true, rate: 0.8, depth: 0.35, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.3, wetDry: 0.2 },
     },
   },
 };
@@ -73,12 +73,12 @@ const softPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'sine',
-    volume: 0.7,
-    envelope: { attack: 0.04, decay: 1.0, sustain: 0.05, release: 0.8 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2000 },
+    volume: 0.68,
+    envelope: { attack: 0.02, decay: 1.4, sustain: 0.03, release: 1.5 },
+    filter: { enabled: true, type: 'lowpass', frequency: 1800 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.75, wetDry: 0.4 },
+      reverb: { enabled: true, roomSize: 0.7, wetDry: 0.38 },
     },
   },
 };
@@ -88,12 +88,12 @@ const brightPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.75,
-    envelope: { attack: 0.002, decay: 0.5, sustain: 0.05, release: 0.9 },
-    filter: { enabled: true, type: 'lowpass', frequency: 9000 },
+    volume: 0.76,
+    envelope: { attack: 0.001, decay: 1.0, sustain: 0.03, release: 0.9 },
+    filter: { enabled: true, type: 'lowpass', frequency: 7500 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.4, wetDry: 0.25 },
+      reverb: { enabled: true, roomSize: 0.35, wetDry: 0.2 },
     },
   },
 };
@@ -103,13 +103,12 @@ const warmPiano: SynthPreset = {
   category: 'Piano',
   config: {
     oscillatorType: 'triangle',
-    volume: 0.72,
-    envelope: { attack: 0.01, decay: 0.9, sustain: 0.05, release: 0.7 },
-    filter: { enabled: true, type: 'lowpass', frequency: 2800 },
+    volume: 0.74,
+    envelope: { attack: 0.005, decay: 1.6, sustain: 0.02, release: 1.0 },
+    filter: { enabled: true, type: 'lowpass', frequency: 2400 },
     effects: {
       ...defaultEffectsOff,
-      reverb: { enabled: true, roomSize: 0.65, wetDry: 0.35 },
-      chorus: { enabled: true, rate: 0.6, depth: 0.2, wetDry: 0.15 },
+      reverb: { enabled: true, roomSize: 0.55, wetDry: 0.3 },
     },
   },
 };
