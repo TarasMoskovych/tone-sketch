@@ -282,17 +282,25 @@ export function MelodyFeed({ initialMelodies = [] }: MelodyFeedProps) {
    * Uses useFeedPreview hook for playback management
    */
   const handlePlayClick = useCallback((melodyId: string) => {
+    // If clicking the same melody that's playing, it will stop — set fade-out
+    if (previewingMelodyId === melodyId) {
+      setFadingOutMelodyId(melodyId);
+    }
     setLoadingMelodyId(melodyId);
     playPreview(melodyId);
-  }, [playPreview]);
+  }, [playPreview, previewingMelodyId]);
 
   /**
    * Handle stop button click on a melody card
+   * Set fadingOutMelodyId synchronously before stopping to prevent unmount flicker
    */
   const handleStopClick = useCallback(() => {
+    if (previewingMelodyId) {
+      setFadingOutMelodyId(previewingMelodyId);
+    }
     setLoadingMelodyId(null);
     stopPreview();
-  }, [stopPreview]);
+  }, [stopPreview, previewingMelodyId]);
 
   // Clear loading indicator when preview starts or stops
   useEffect(() => {
