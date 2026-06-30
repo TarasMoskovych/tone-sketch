@@ -24,6 +24,10 @@ export interface UseKeyboardShortcutsProps {
   onPaste?: () => void;
   /** Callback for duplicate operation (Ctrl+D/Cmd+D) */
   onDuplicate?: () => void;
+  /** Callback for undo operation (Ctrl+Z/Cmd+Z) */
+  onUndo?: () => void;
+  /** Callback for redo operation (Ctrl+Shift+Z/Cmd+Shift+Z or Ctrl+Y/Cmd+Y) */
+  onRedo?: () => void;
   /** Whether a drag/resize/marquee operation is in progress */
   isDragging?: boolean;
   /** Reference to the container element that should have focus for shortcuts to work */
@@ -118,6 +122,8 @@ export function useKeyboardShortcuts({
   onCut,
   onPaste,
   onDuplicate,
+  onUndo,
+  onRedo,
   isDragging,
   containerRef,
 }: UseKeyboardShortcutsProps): void {
@@ -202,11 +208,34 @@ export function useKeyboardShortcuts({
         }
         break;
 
+      case 'KeyZ':
+        // Undo (Ctrl+Z/Cmd+Z) or Redo (Ctrl+Shift+Z/Cmd+Shift+Z)
+        // Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.8
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && onRedo) {
+          if (isDragging) break;
+          event.preventDefault();
+          onRedo();
+        } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && onUndo) {
+          if (isDragging) break;
+          event.preventDefault();
+          onUndo();
+        }
+        break;
+
+      case 'KeyY':
+        // Redo alternative (Ctrl+Y/Cmd+Y) — Requirement 6.2
+        if ((event.ctrlKey || event.metaKey) && onRedo) {
+          if (isDragging) break;
+          event.preventDefault();
+          onRedo();
+        }
+        break;
+
       default:
         // No action for other keys
         break;
     }
-  }, [enabled, onTogglePlayback, onDeleteNote, onSelectAll, onCopy, onCut, onPaste, onDuplicate, isDragging, containerRef]);
+  }, [enabled, onTogglePlayback, onDeleteNote, onSelectAll, onCopy, onCut, onPaste, onDuplicate, onUndo, onRedo, isDragging, containerRef]);
 
   /**
    * Set up and clean up keyboard event listeners

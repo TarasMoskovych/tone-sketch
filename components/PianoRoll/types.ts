@@ -136,6 +136,36 @@ export interface PianoRollCanvasProps {
    */
   onDuplicate?: () => void;
   /**
+   * Callback for undo operation (Ctrl+Z/Cmd+Z)
+   * Requirements: 6.1, 6.5 - Undo last action
+   */
+  onUndo?: () => void;
+  /**
+   * Callback for redo operation (Ctrl+Shift+Z/Cmd+Shift+Z or Ctrl+Y/Cmd+Y)
+   * Requirements: 6.2, 6.5 - Redo last undone action
+   */
+  onRedo?: () => void;
+  /**
+   * Callback when a note drag/resize operation begins.
+   * Used to suppress undo recording during intermediate updates.
+   * Requirements: 1.3, 1.4, 1.5, 1.8 - Only record final commit, not intermediate drag states
+   */
+  onDragStart?: () => void;
+  /**
+   * Callback when a note drag/resize operation commits (mouse-up).
+   * Provides original and final note states for undo recording.
+   * For single note operations: originalNotes has 1 entry.
+   * For group drag operations: originalNotes has all affected notes.
+   * Requirements: 1.3, 1.4, 1.5, 1.8 - Record final before/after snapshot on commit
+   */
+  onDragEnd?: (originalNotes: Map<string, Note>, updatedNotes: Map<string, Note>) => void;
+  /**
+   * Callback when a note drag/resize operation is cancelled (Escape key).
+   * Used to clear the drag suppression flag without recording an action.
+   * Requirements: 1.8 - No recording for cancelled operations
+   */
+  onDragCancel?: () => void;
+  /**
    * Currently highlighted pitch from keyboard piano (most recently pressed key)
    * Requirement 40.5: Highlight piano row background when keyboard piano key is held
    * Used for visual feedback when playing notes via computer keyboard

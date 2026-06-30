@@ -13,6 +13,7 @@ import {
   useCopyPaste,
   DEFAULT_SYNTH_CONFIG,
 } from '@/hooks';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import {
   PianoRollCanvas,
   TransportControls,
@@ -104,7 +105,7 @@ export function MelodyEditor({
     selectionAnchor,
     gridSnap,
     setGridSnap,
-    createNote,
+    createNote: _createNote,
     updateNote,
     deleteNote,
     selectNote,
@@ -173,6 +174,9 @@ export function MelodyEditor({
     notesRef.current = notes;
   }, [notes]);
 
+  // Ref for recordBatch to break circular dependency between useCopyPaste and useUndoRedo
+  const recordBatchRef = useRef<(operations: Array<{ type: 'create'; note: Note } | { type: 'delete'; note: Note } | { type: 'modify'; noteId: string; before: Note; after: Note }>) => void>(() => {});
+
   const { copy, cut, paste, duplicate } = useCopyPaste({
     notes,
     selectedNoteIds,
@@ -184,14 +188,37 @@ export function MelodyEditor({
     }, [pianoRollLoadNotes]),
     onNotesDeleted: useCallback((noteIds: string[]) => {
       if (readOnlyRef.current) return;
+      // Capture note data before deletion for undo recording
+      const notesToDelete = notesRef.current.filter(n => noteIds.includes(n.id));
       for (const id of noteIds) {
         deleteNote(id);
+      }
+      // Record a batch delete action so cut can be undone in a single step
+      if (notesToDelete.length > 0) {
+        const deleteOps = notesToDelete.map(note => ({
+          type: 'delete' as const,
+          note,
+        }));
+        recordBatchRef.current(deleteOps);
       }
     }, [deleteNote]),
     onSelectionChanged: useCallback((noteIds: string[]) => {
       pianoRoll.selectNotes(noteIds);
     }, [pianoRoll]),
   });
+
+  // ===== Undo/Redo Hook =====
+  const { canUndo: _canUndo, canRedo: _canRedo, undo, redo, recordCreate, recordDelete, recordModify, recordBatch, clearHistory, setDragInProgress } = useUndoRedo({
+    notes,
+    loadNotes: pianoRollLoadNotes,
+    selectNotes: pianoRoll.selectNotes,
+    deselectAll,
+  });
+
+  // Keep recordBatchRef in sync so useCopyPaste's onNotesDeleted can access it
+  useEffect(() => {
+    recordBatchRef.current = recordBatch;
+  }, [recordBatch]);
 
   // ===== State Change Notification =====
   const fireStateChange = useCallback((state: EditorState) => {
@@ -296,12 +323,13 @@ export function MelodyEditor({
     if (!allowMidiImportRef.current) return;
 
     pianoRollLoadNotes(importedNotes);
+    clearHistory(); // Reset undo history after MIDI import
     if (importedTempo !== undefined) {
       const clampedTempo = clampTempo(importedTempo);
       setTempo(clampedTempo);
       synthEngineRef.current?.setTempo(clampedTempo);
     }
-  }, [pianoRollLoadNotes]);
+  }, [pianoRollLoadNotes, clearHistory]);
 
   // Expose loadNotes to parent via onMidiImport callback
   useEffect(() => {
@@ -318,24 +346,35 @@ export function MelodyEditor({
     synthEngineRef.current?.setTempo(clamped);
   }, []);
 
-  /** Handle note creation with audio trigger */
+  /** Handle note creation with audio trigger and undo recording */
   const handleNoteCreate = useCallback((note: Note) => {
     if (readOnlyRef.current) return;
-    createNote(note.pitch, note.start);
+    // Add note directly to preserve the ID from PianoRollCanvas for undo tracking
+    pianoRollLoadNotes([...notesRef.current, note]);
+    pianoRoll.selectNotes([note.id]);
+    recordCreate(note);
     synthEngineRef.current?.triggerNote(note);
-  }, [createNote]);
+  }, [pianoRollLoadNotes, pianoRoll, recordCreate]);
 
-  /** Handle note update */
+  /** Handle note update with undo recording */
   const handleNoteUpdate = useCallback((updatedNote: Note) => {
     if (readOnlyRef.current) return;
+    const beforeNote = notesRef.current.find(n => n.id === updatedNote.id);
     updateNote(updatedNote.id, updatedNote);
-  }, [updateNote]);
+    if (beforeNote) {
+      recordModify(updatedNote.id, beforeNote, updatedNote);
+    }
+  }, [updateNote, recordModify]);
 
-  /** Handle note deletion */
+  /** Handle note deletion with undo recording */
   const handleNoteDelete = useCallback((noteId: string) => {
     if (readOnlyRef.current) return;
+    const noteToDelete = notesRef.current.find(n => n.id === noteId);
     deleteNote(noteId);
-  }, [deleteNote]);
+    if (noteToDelete) {
+      recordDelete(noteToDelete);
+    }
+  }, [deleteNote, recordDelete]);
 
   /** Handle note selection (always allowed, even in readOnly) */
   const handleNoteSelect = useCallback((noteId: string | null) => {
@@ -362,11 +401,61 @@ export function MelodyEditor({
     setSelectionAnchor(noteId);
   }, [setSelectionAnchor]);
 
-  /** Handle bulk note update */
+  /** Handle bulk note update with undo recording */
   const handleBulkNoteUpdate = useCallback((updates: Map<string, Partial<Note>>) => {
     if (readOnlyRef.current) return;
+    // Capture before states for all affected notes
+    const operations: Array<{ type: 'modify'; noteId: string; before: Note; after: Note }> = [];
+    for (const [noteId, partialUpdate] of updates) {
+      const beforeNote = notesRef.current.find(n => n.id === noteId);
+      if (beforeNote) {
+        const afterNote = { ...beforeNote, ...partialUpdate };
+        operations.push({ type: 'modify' as const, noteId, before: beforeNote, after: afterNote });
+      }
+    }
     bulkUpdateNotes(updates);
-  }, [bulkUpdateNotes]);
+    if (operations.length > 0) {
+      recordBatch(operations);
+    }
+  }, [bulkUpdateNotes, recordBatch]);
+
+  /** Handle drag start - suppress undo recording during intermediate updates */
+  const handleDragStart = useCallback(() => {
+    setDragInProgress(true);
+  }, [setDragInProgress]);
+
+  /** Handle drag end - record the final before/after snapshot on commit */
+  const handleDragEnd = useCallback((originalNotes: Map<string, Note>, updatedNotes: Map<string, Note>) => {
+    // Clear the drag flag first so recording is no longer suppressed
+    setDragInProgress(false);
+
+    // Record the final undo action with the before/after states
+    if (originalNotes.size === 1) {
+      // Single note modification
+      const [noteId, before] = originalNotes.entries().next().value!;
+      const after = updatedNotes.get(noteId);
+      if (after && (before.start !== after.start || before.pitch !== after.pitch || before.duration !== after.duration || before.velocity !== after.velocity)) {
+        recordModify(noteId, before, after);
+      }
+    } else if (originalNotes.size > 1) {
+      // Batch modification (group drag)
+      const operations: Array<{ type: 'modify'; noteId: string; before: Note; after: Note }> = [];
+      for (const [noteId, before] of originalNotes) {
+        const after = updatedNotes.get(noteId);
+        if (after && (before.start !== after.start || before.pitch !== after.pitch || before.duration !== after.duration || before.velocity !== after.velocity)) {
+          operations.push({ type: 'modify' as const, noteId, before, after });
+        }
+      }
+      if (operations.length > 0) {
+        recordBatch(operations);
+      }
+    }
+  }, [setDragInProgress, recordModify, recordBatch]);
+
+  /** Handle drag cancel - clear suppression flag without recording */
+  const handleDragCancel = useCallback(() => {
+    setDragInProgress(false);
+  }, [setDragInProgress]);
 
   /** Handle playhead position change */
   const handlePlayheadChange = useCallback((position: number) => {
@@ -391,8 +480,17 @@ export function MelodyEditor({
   /** Handle clear all notes */
   const handleClearNotes = useCallback(() => {
     if (readOnlyRef.current) return;
+    // Record a batch delete action with all current notes before clearing
+    const currentNotes = notesRef.current;
+    if (currentNotes.length > 0) {
+      const deleteOps = currentNotes.map(note => ({
+        type: 'delete' as const,
+        note,
+      }));
+      recordBatch(deleteOps);
+    }
     clearNotes();
-  }, [clearNotes]);
+  }, [clearNotes, recordBatch]);
 
   // ===== Fullscreen State =====
   const [isPianoRollFullscreen, setIsPianoRollFullscreen] = useState(false);
@@ -525,6 +623,11 @@ export function MelodyEditor({
                   onCut={cut}
                   onPaste={paste}
                   onDuplicate={duplicate}
+                  onUndo={undo}
+                  onRedo={redo}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
                   className="w-full h-full"
                 />
               </ErrorBoundary>

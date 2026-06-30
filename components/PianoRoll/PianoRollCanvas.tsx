@@ -57,7 +57,12 @@ export function PianoRollCanvas({
   onCut,
   onPaste,
   onDuplicate,
-   
+  onUndo,
+  onRedo,
+  onDragStart,
+  onDragEnd,
+  onDragCancel,
+
   highlightedPitch: _highlightedPitch = undefined,
   activePitches = new Set(),
   autoScrollDuringPlayback = true,
@@ -133,7 +138,7 @@ export function PianoRollCanvas({
   }, [onNoteDelete, selectedNoteIds]);
 
   const handlePlaybackShortcut = useCallback(() => onTogglePlayback?.(), [onTogglePlayback]);
-  useKeyboardShortcuts({ enabled: keyboardShortcutsEnabled, onTogglePlayback: handlePlaybackShortcut, onDeleteNote: handleDeleteShortcut, onSelectAll, onCopy, onCut, onPaste, onDuplicate, isDragging: !!dragState || !!marqueeState, containerRef });
+  useKeyboardShortcuts({ enabled: keyboardShortcutsEnabled, onTogglePlayback: handlePlaybackShortcut, onDeleteNote: handleDeleteShortcut, onSelectAll, onCopy, onCut, onPaste, onDuplicate, onUndo, onRedo, isDragging: !!dragState || !!marqueeState, containerRef });
 
   // Auto-scroll during playback
   useEffect(() => {
@@ -324,12 +329,13 @@ export function PianoRollCanvas({
       }
 
       startNoteDrag(note, cx, cy, isResize, isGroup, origNotes);
+      onDragStart?.();
       e.preventDefault();
     } else {
       startMarquee(cx, cy, isPlatformModifierKey(e.nativeEvent), new Set(selectedNoteIds));
       e.preventDefault();
     }
-  }, [notes, visibleRegion, effectiveTotalBeats, selectedNoteIds, onNoteUpdate, startNoteDrag, startScrollbarDrag, startMarquee]);
+  }, [notes, visibleRegion, effectiveTotalBeats, selectedNoteIds, onNoteUpdate, onDragStart, startNoteDrag, startScrollbarDrag, startMarquee]);
 
   // Mouse move handler for dragging
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -457,7 +463,35 @@ export function PianoRollCanvas({
     if (dragState) {
       justFinishedDragRef.current = true;
       setTimeout(() => { justFinishedDragRef.current = false; }, 0);
-      endNoteDrag();
+
+      // Collect before/after states for undo recording before clearing drag state
+      if (onDragEnd) {
+        const originalNotes = new Map<string, Note>();
+        const updatedNotes = new Map<string, Note>();
+
+        if (dragState.isGroupDrag && dragState.originalSelectedNotes.size > 0) {
+          // Group drag: collect all affected notes
+          for (const [id, originalNote] of dragState.originalSelectedNotes) {
+            originalNotes.set(id, originalNote);
+            const currentNote = notes.find(n => n.id === id);
+            if (currentNote) {
+              updatedNotes.set(id, currentNote);
+            }
+          }
+        } else {
+          // Single note drag/resize
+          originalNotes.set(dragState.originalNote.id, dragState.originalNote);
+          const currentNote = notes.find(n => n.id === dragState.originalNote.id);
+          if (currentNote) {
+            updatedNotes.set(dragState.originalNote.id, currentNote);
+          }
+        }
+
+        endNoteDrag();
+        onDragEnd(originalNotes, updatedNotes);
+      } else {
+        endNoteDrag();
+      }
     }
 
     if (scrollbarDragState) {
@@ -475,12 +509,15 @@ export function PianoRollCanvas({
       }
       endMarquee();
     }
-  }, [dragState, scrollbarDragState, marqueeState, endNoteDrag, endScrollbarDrag, endMarquee, justFinishedDragRef]);
+  }, [dragState, scrollbarDragState, marqueeState, notes, endNoteDrag, endScrollbarDrag, endMarquee, justFinishedDragRef, onDragEnd]);
 
   // Key down handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      if (dragState && onNoteUpdate) cancelNoteDrag();
+      if (dragState && onNoteUpdate) {
+        cancelNoteDrag();
+        onDragCancel?.();
+      }
       if (marqueeState) cancelMarquee();
       return;
     }
@@ -491,7 +528,7 @@ export function PianoRollCanvas({
         onNoteDelete(id);
       }
     }
-  }, [dragState, marqueeState, onNoteUpdate, onNoteDelete, selectedNoteIds, cancelNoteDrag, cancelMarquee]);
+  }, [dragState, marqueeState, onNoteUpdate, onNoteDelete, onDragCancel, selectedNoteIds, cancelNoteDrag, cancelMarquee]);
 
   // Canvas click handler
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
